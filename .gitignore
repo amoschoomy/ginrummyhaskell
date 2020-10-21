@@ -1,0 +1,14 @@
+rummy.cabal
+stack.yaml.lock
+.stack-work/stack.sqlite3
+.stack-work/stack.sqlite3.pantry-write-lock
+.stack-work/dist/29cc6475/build-lock
+.stack-work/dist/29cc6475/setup-config
+.stack-work/dist/29cc6475/stack-cabal-mod
+.stack-work/dist/29cc6475/build/autogen/cabal_macros.h
+.stack-work/dist/29cc6475/build/autogen/Paths_rummy.hs
+.stack-work/dist/29cc6475/build/staticgame/autogen/cabal_macros.h
+.stack-work/dist/29cc6475/build/staticgame/autogen/Paths_rummy.hs
+.stack-work/ghci/3b974961/cabal_macros.h
+.stack-work/install/39013f4b/pkgdb/package.cache
+.stack-work/install/39013f4b/pkgdb/package.cache.lock

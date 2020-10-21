@@ -31,7 +31,9 @@ instance NFData Meld where
   rnf = rwhnf
 
 data Draw = Stock | Discard
+  deriving (Show)
 data Action = Action Act Card
+  deriving(Show)
 data Act = Gin | Knock | Drop
   deriving(Show)
 
