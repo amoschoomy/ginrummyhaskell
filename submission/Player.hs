@@ -7,23 +7,47 @@ import Parser.Parser -- This is the source for the parser from the course notes
 import Rummy.Types   -- Here you will find types used in the game of Rummy
 import Cards         -- Finally, the generic card type(s)
 -- You can add more imports if you need them
+import Data.List
+import Prelude
 
 -- | This card is called at the beginning of your turn, you need to decide which
 -- pile to draw from.
 pickCard :: ActionFunc
 -- pickCard card memory drw hand=
 pickCard (Card f x) Nothing Nothing hand =(pile,memory) where --base case when at start of the game
-    pile=Stock
-    memory="Q"
-pickCard (Card f x) (Just l) (Just lol) hand=(pile,memory) where
+    pile=if sameAny rankofcard (Card f x) hand && length (filterRankLess (filterSameSuit hand f) x) /=0 && length (filterRankMore (filterSameSuit hand f) x) /=0 then Discard else Stock
+    memory="Stock"
+pickCard (Card f x) (Just l) (Just lol) hand=(pile,memory)  where --depends on player memory
     pile=Discard
-    memory="Q"
+    memory="Discard"
 pickCard (Card _ _) _ _ _=undefined
 
+cardsw=[Card Spade Four,Card Diamond Five,Card Heart Five, Card Spade Seven]
+
+-- checkPossibleMelds :: [Card] -> Card -> Bool
+-- checkPossibleMelds [] (Card x y)=[]
+-- checkPossibleMelds (x:xs) (Card x y)=undefined
+
+
+filterSameSuit :: [Card] -> Suit -> [Card]
+filterSameSuit cards suit=filter isSameSuit cards
+    where isSameSuit (Card s _)= if s==suit then True else False
+
+filterRankLess :: [Card] -> Rank -> [Card]
+filterRankLess cards rank=filter isSameRank cards
+    where isSameRank (Card _ r)=if r<rank then True else False
+
+filterRankMore :: [Card] -> Rank -> [Card]
+filterRankMore cards rank=filter isSameRank cards
+    where isSameRank (Card _ r)=if r>rank then True else False
 
 
 
+sameAny :: Eq b => (t -> b) -> t -> [t] -> Bool
+sameAny f c xs = any (== f c) (map f xs)
 
+rankofcard :: Card -> Rank
+rankofcard (Card _ r) = r
 
 -- type ActionFunc
 --   = Card          -- ^ card on top of the discard pile
