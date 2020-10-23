@@ -7,26 +7,41 @@ import Parser.Parser -- This is the source for the parser from the course notes
 import Rummy.Types   -- Here you will find types used in the game of Rummy
 import Cards         -- Finally, the generic card type(s)
 -- You can add more imports if you need them
-import Data.List
 import Prelude
+import Rummy.Rules
+
+
+--Data Structure for PlayerMemory
+data PlayerMemory=PlayerMemory Card  [Card] [Card] [Card]
+    deriving(Show)
+
+--Current Card to be played/chose
+-- Player Hand
+-- Opponent chosen cards up to that turn
+-- discard pile
+
+
 
 -- | This card is called at the beginning of your turn, you need to decide which
 -- pile to draw from.
 pickCard :: ActionFunc
--- pickCard card memory drw hand=
 pickCard (Card f x) Nothing Nothing hand =(pile,memory) where --base case when at start of the game
     pile=if sameAny rankofcard (Card f x) hand && length (filterRankLess (filterSameSuit hand f) x) /=0 && length (filterRankMore (filterSameSuit hand f) x) /=0 then Discard else Stock
     memory="Stock"
-pickCard (Card f x) (Just l) (Just lol) hand=(pile,memory)  where --depends on player memory
+pickCard (Card f x) (Just mem)  (Just Stock) hand=(pile,memory)  where --opponent choose to stock
     pile=Discard
     memory="Discard"
+pickCard (Card f x) (Just mem) (Just Discard) hand=(pile,memory) where --opponent choose to discard
+    pile=Stock
+    memory="Stock"
 pickCard (Card _ _) _ _ _=undefined
 
 cardsw=[Card Spade Four,Card Diamond Five,Card Heart Five, Card Spade Seven]
 
--- checkPossibleMelds :: [Card] -> Card -> Bool
--- checkPossibleMelds [] (Card x y)=[]
--- checkPossibleMelds (x:xs) (Card x y)=undefined
+drawFromDiscardStrat :: [Card] -> Maybe String -> Bool
+drawFromDiscardStrat playercards (Just playermemory)=True
+drawFromDiscardStrat playercards Nothing=False --if no memory don't discard
+
 
 
 filterSameSuit :: [Card] -> Suit -> [Card]
@@ -68,7 +83,7 @@ rankofcard (Card _ r) = r
 
 
 playCard :: PlayFunc
-playCard (Card f x) mem hand=(Action Drop (Card f x),"LOL")
+playCard (Card f x) mem hand=(Action Knock (head hand),"LOL")
 -- | This function is called at the end of the game when you need to return the
 -- melds you formed with your last hand.
 
