@@ -10,7 +10,6 @@ import Cards         -- Finally, the generic card type(s)
 import Prelude
 import Rummy.Rules
 
-
 --Data Structure for PlayerMemory
 data PlayerMemory=PlayerMemory ([Card],[Card])
     deriving(Show)
@@ -24,22 +23,50 @@ data PlayerMemory=PlayerMemory ([Card],[Card])
 
 -- | This card is called at the beginning of your turn, you need to decide which
 -- pile to draw from.
+
+-- type ActionFunc
+--   = Card            -- ^ card on top of the discard pile
+--   -> (Score, Score) -- ^ scores of (player, opponent) as of last round
+--   -> Maybe String
+--   -- ^ player's memory, on first player turn in the first round it will be Nothing
+--   -> Maybe Draw -- ^ opponent's chosen action, on first game turn it will be Nothing
+--   -> [Card]     -- ^ the player's hand
+--   -> (Draw, String) -- ^ which pile did the player chose to draw from
 pickCard :: ActionFunc
-pickCard (Card f x) Nothing Nothing hand --base case when at start of the game
-    |ranksInBetweenSameSuitPresent (hand) (Card f x) =(Discard,"()")
+pickCard (Card f x) score Nothing Nothing hand --base case when at start of the game
+    | uncurry (-) score> -25 && offensiveStratforPicking (Card f x) hand =(Discard,"()")
+    |sameAny rankofcard (Card f x) hand || ranksInBetweenSameSuitPresent (hand) (Card f x) =(Discard,"()")
     |otherwise=(Stock,"()")
-pickCard (Card f x) (Just mem)  (Just Stock) hand --opponent choose to stock
+
+pickCard (Card f x) score (Just mem)  (Just Stock) hand --opponent choose to stock
     --if opponet chose from stock, we know that, previous card of Discard pile is not favourable to opponent
     --TODO: parse string to player memory type
+    | uncurry (-) score> -25 && offensiveStratforPicking (Card f x) hand =(Discard,"()")
     |drawFromDiscardGeneralStrat (Card f x) hand (Just mem) = (Discard,"()")
     |otherwise=(Stock,"()")
-pickCard (Card f x) (Just mem) (Just Discard) hand--opponent choose to discard
+pickCard (Card f x) score (Just mem) (Just Discard) hand--opponent choose to discard
     -- if opponent choose to discard, we should prevent any more same rank or ranks(same suit) around being taken in the pile.
+    | uncurry (-) score> -25 && offensiveStratforPicking (Card f x) hand =(Discard,"()")
     | drawFromDiscardGeneralStrat (Card f x) hand (Just mem) || ranksInBetweenSameSuitPresent hand (Card f x) =(Discard,"()")
     | otherwise=(Stock,"()")
-pickCard (Card _ _) _ _ _=undefined
+pickCard (Card _ _)_  _ _ _=undefined
 
-cardsw=[Card Spade Four,Card Diamond Five,Card Heart Five, Card Spade Seven]
+offensiveStratforPicking :: Card -> [Card] -> Bool
+offensiveStratforPicking (Card s r) hand 
+    | r==Seven=True --Take Seven at all costs
+
+    --https://www.gamecolony.com/gin_rummy_hands.shtml strategy taken from
+    | length (filter(\x->x==Card Spade Five ||x==Card Heart Five ||x==Card Spade Six || x==Card Heart Six) hand)>1 &&
+    Card s r==Card Spade Five ||Card s r==Card Heart Five ||Card s r==Card Spade Six || Card s r==Card Heart Six=True
+
+    | length(filter(\x->x==Card Spade Ten ||x==Card Spade Jack||x==Card Heart Jack))>1 && 
+    Card s r==Card Spade Ten ||Card s r==Card Spade Jack||Card s r==Card Heart Jack=True
+
+    | length (filter(\x->x==Card Spade Six||x==Card Spade Eight||x==Card Heart Eight))>1 &&
+    Card s r==Card Spade Six||Card s r==Card Spade Eight||Card s r==Card Heart Eight=True
+
+    |otherwise=False
+
 
 
 ranksInBetweenSameSuitPresent :: [Card] -> Card -> Bool
@@ -88,14 +115,6 @@ sameAny f c xs = any (== f c) (map f xs)
 rankofcard :: Card -> Rank
 rankofcard (Card _ r) = r
 
--- type ActionFunc
---   = Card          -- ^ card on top of the discard pile
---   -> Maybe String -- ^ player's memory, on first player turn it will be Nothing
---   -> Maybe Draw -- ^ opponent's chosen action, on first game turn it will be Nothing
---   -> [Card]       -- ^ the player's hand
---   -> (Draw, String) -- ^ which pile did the player chose to draw from
--- | This function is called once you have drawn a card, you need to decide
--- which action to call.
 
 
 -- type PlayFunc

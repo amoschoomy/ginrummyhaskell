@@ -19,6 +19,7 @@ data Play = Play
   }
 type Trick = [Play]
 
+type Score=Int
 data Meld =
       Deadwood Card            -- An unmelded card
     | Set3 Card Card Card      -- 3 cards of same rank different suit
@@ -131,11 +132,20 @@ type PlayFunc
 --
 -- This function is called at the beginning of a turn before the player has to
 -- form melds.
+-- type ActionFunc
+--   = Card          -- ^ card on top of the discard pile
+--   -> Maybe String -- ^ player's memory, on first player turn it will be Nothing
+--   -> Maybe Draw -- ^ opponent's chosen action, on first game turn it will be Nothing
+--   -> [Card]       -- ^ the player's hand
+--   -> (Draw, String) -- ^ which pile did the player chose to draw from
+
 type ActionFunc
-  = Card          -- ^ card on top of the discard pile
-  -> Maybe String -- ^ player's memory, on first player turn it will be Nothing
+  = Card            -- ^ card on top of the discard pile
+  -> (Score, Score) -- ^ scores of (player, opponent) as of last round
+  -> Maybe String
+  -- ^ player's memory, on first player turn in the first round it will be Nothing
   -> Maybe Draw -- ^ opponent's chosen action, on first game turn it will be Nothing
-  -> [Card]       -- ^ the player's hand
+  -> [Card]     -- ^ the player's hand
   -> (Draw, String) -- ^ which pile did the player chose to draw from
 
 -- | Meld function type.
