@@ -25,30 +25,35 @@ data PlayerMemory=PlayerMemory ([Card],[Card])
 -- | This card is called at the beginning of your turn, you need to decide which
 -- pile to draw from.
 pickCard :: ActionFunc
-pickCard (Card f x) Nothing Nothing hand =(pile,memory) where --base case when at start of the game
-    pile=if sameAny rankofcard (Card f x) hand && length (filterRankLess (filterSameSuit hand f) x) /=0 && length (filterRankMore (filterSameSuit hand f) x) /=0 then Discard else Stock
-    memory="()"
-pickCard (Card f x) (Just mem)  (Just Stock) hand=(pile,memory)  where --opponent choose to stock
+pickCard (Card f x) Nothing Nothing hand --base case when at start of the game
+    |ranksInBetweenSameSuitPresent (hand) (Card f x) =(Discard,"()")
+    |otherwise=(Stock,"()")
+pickCard (Card f x) (Just mem)  (Just Stock) hand --opponent choose to stock
     --if opponet chose from stock, we know that, previous card of Discard pile is not favourable to opponent
     --TODO: parse string to player memory type
-    pile=if length (filterSameRank (getDiscardPilefromMemory (Just mem)) x)>=1 || drawFromDiscardStrat (Card f x) hand (Just mem) then Discard else Stock
-    memory="()"
-pickCard (Card f x) (Just mem) (Just Discard) hand=(pile,memory) where --opponent choose to discard
+    |drawFromDiscardGeneralStrat (Card f x) hand (Just mem) = (Discard,"()")
+    |otherwise=(Stock,"()")
+pickCard (Card f x) (Just mem) (Just Discard) hand--opponent choose to discard
     -- if opponent choose to discard, we should prevent any more same rank or ranks(same suit) around being taken in the pile.
-    pile=if length (filterSameRank (getDiscardPilefromMemory (Just mem)) x)>=1 || drawFromDiscardStrat (Card f x) hand (Just mem) ||
-        length (filterRankLess (filterSameSuit hand f) x) /=0 && length (filterRankMore (filterSameSuit hand f) x) /=0 then Discard
-        else Stock
-    memory="()"
+    | drawFromDiscardGeneralStrat (Card f x) hand (Just mem) || ranksInBetweenSameSuitPresent hand (Card f x) =(Discard,"()")
+    | otherwise=(Stock,"()")
 pickCard (Card _ _) _ _ _=undefined
 
 cardsw=[Card Spade Four,Card Diamond Five,Card Heart Five, Card Spade Seven]
 
-drawFromDiscardStrat ::Card -> [Card] -> Maybe PlayerMemory -> Bool
-drawFromDiscardStrat (Card x y) playerhand (Just playermemory)
+
+ranksInBetweenSameSuitPresent :: [Card] -> Card -> Bool
+ranksInBetweenSameSuitPresent  hand (Card f x)
+    |not (null (filterRankLess (filterSameSuit hand f) x)) && not (null (filterRankMore (filterSameSuit hand f) x))=True
+    |otherwise=False
+
+drawFromDiscardGeneralStrat ::Card -> [Card] -> Maybe PlayerMemory -> Bool
+drawFromDiscardGeneralStrat (Card x y) playerhand (Just playermemory)
+    | not(null(filterSameRank (getDiscardPilefromMemory (Just playermemory)) y))=True
     | length (filterSameRank playerhand y)==2 = True --If player at hand can form a possible run, discard
     | length (filterSameRank (getOpponentHandfromMemory (Just playermemory)) y)>1=True --if opponent can form a run at the discard pile, take it
     | otherwise = False
-drawFromDiscardStrat (Card x y) playerhand Nothing=False
+drawFromDiscardGeneralStrat (Card x y) playerhand Nothing=False
 
 
 
