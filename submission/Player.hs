@@ -12,36 +12,53 @@ import Rummy.Rules
 
 
 --Data Structure for PlayerMemory
-data PlayerMemory=PlayerMemory Card  [Card] [Card] [Card]
+data PlayerMemory=PlayerMemory ([Card],[Card])
     deriving(Show)
 
---Current Card to be played/chose
--- Player Hand
 -- Opponent chosen cards up to that turn
 -- discard pile
+-- Opponenet cards predicted supposed to be taken
 
-
+--Functions will take Maybe String as parameter.
+--We need to parse the string back into our datatype to be used
 
 -- | This card is called at the beginning of your turn, you need to decide which
 -- pile to draw from.
 pickCard :: ActionFunc
 pickCard (Card f x) Nothing Nothing hand =(pile,memory) where --base case when at start of the game
     pile=if sameAny rankofcard (Card f x) hand && length (filterRankLess (filterSameSuit hand f) x) /=0 && length (filterRankMore (filterSameSuit hand f) x) /=0 then Discard else Stock
-    memory="Stock"
+    memory="()"
 pickCard (Card f x) (Just mem)  (Just Stock) hand=(pile,memory)  where --opponent choose to stock
-    pile=Discard
-    memory="Discard"
+    --if opponet chose from stock, we know that, previous card of Discard pile is not favourable to opponent
+    --TODO: parse string to player memory type
+    pile=if length (filterSameRank (getDiscardPilefromMemory (Just mem)) x)>=1 || drawFromDiscardStrat (Card f x) hand (Just mem) then Discard else Stock
+    memory="()"
 pickCard (Card f x) (Just mem) (Just Discard) hand=(pile,memory) where --opponent choose to discard
-    pile=Stock
-    memory="Stock"
+    -- if opponent choose to discard, we should prevent any more same rank or ranks(same suit) around being taken in the pile.
+    pile=if length (filterSameRank (getDiscardPilefromMemory (Just mem)) x)>=1 || drawFromDiscardStrat (Card f x) hand (Just mem) ||
+        length (filterRankLess (filterSameSuit hand f) x) /=0 && length (filterRankMore (filterSameSuit hand f) x) /=0 then Discard
+        else Stock
+    memory="()"
 pickCard (Card _ _) _ _ _=undefined
 
 cardsw=[Card Spade Four,Card Diamond Five,Card Heart Five, Card Spade Seven]
 
-drawFromDiscardStrat :: [Card] -> Maybe String -> Bool
-drawFromDiscardStrat playercards (Just playermemory)=True
-drawFromDiscardStrat playercards Nothing=False --if no memory don't discard
+drawFromDiscardStrat ::Card -> [Card] -> Maybe PlayerMemory -> Bool
+drawFromDiscardStrat (Card x y) playerhand (Just playermemory)
+    | length (filterSameRank playerhand y)==2 = True --If player at hand can form a possible run, discard
+    | length (filterSameRank (getOpponentHandfromMemory (Just playermemory)) y)>1=True --if opponent can form a run at the discard pile, take it
+    | otherwise = False
+drawFromDiscardStrat (Card x y) playerhand Nothing=False
 
+
+
+getOpponentHandfromMemory::Maybe PlayerMemory ->[Card]
+getOpponentHandfromMemory (Just (PlayerMemory(a,b)))=a
+getOpponentHandfromMemory Nothing=[]
+
+getDiscardPilefromMemory::Maybe PlayerMemory -> [Card]
+getDiscardPilefromMemory (Just (PlayerMemory(a,b)))=b
+getDiscardPilefromMemory Nothing=[]
 
 
 filterSameSuit :: [Card] -> Suit -> [Card]
@@ -56,7 +73,9 @@ filterRankMore :: [Card] -> Rank -> [Card]
 filterRankMore cards rank=filter isSameRank cards
     where isSameRank (Card _ r)=if r>rank then True else False
 
-
+filterSameRank :: [Card] -> Rank -> [Card]
+filterSameRank cards rank = filter isSameRank cards
+    where isSameRank (Card _ r)=if r==rank then True else False
 
 sameAny :: Eq b => (t -> b) -> t -> [t] -> Bool
 sameAny f c xs = any (== f c) (map f xs)

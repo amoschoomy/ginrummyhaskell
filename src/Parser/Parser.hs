@@ -48,6 +48,7 @@ character = P parseit
 -- Result >< 'v'
 -- >>> parse (character ||| pure 'v') "abc"
 -- Result >bc< 'a'
+--
 -- >>> parse (failed UnexpectedEof ||| pure 'v') "abc"
 -- Result >abc< 'v'
 (|||) :: Parser a -> Parser a -> Parser a
