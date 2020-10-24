@@ -9,10 +9,10 @@ import Cards         -- Finally, the generic card type(s)
 -- You can add more imports if you need them
 import Prelude
 import Rummy.Rules
+import Data.List
 
 --Data Structure for PlayerMemory
 data PlayerMemory=PlayerMemory ([Card],[Card])
-    deriving(Show)
 
 -- Opponent chosen cards up to that turn
 -- discard pile
@@ -61,10 +61,10 @@ offensiveStratforPicking (Card s r) hand
     | length (filter(\x->x==Card Spade Five ||x==Card Heart Five ||x==Card Spade Six || x==Card Heart Six) hand)>1 &&
     Card s r==Card Spade Five ||Card s r==Card Heart Five ||Card s r==Card Spade Six || Card s r==Card Heart Six=True
 
-    | length(filter(\x->x==Card Spade Ten ||x==Card Spade Jack||x==Card Heart Jack))>1 && 
-    Card s r==Card Spade Ten ||Card s r==Card Spade Jack||Card s r==Card Heart Jack=True
+    | length(filter(\x->x==Card Spade Ten ||x==Card Spade Jack||x==Card Heart Jack) hand )>1 && 
+    Card s r==Card Spade Ten ||Card s r==Card Spade Jack||Card s r==Card Heart Jack =True
 
-    | length (filter(\x->x==Card Spade Six||x==Card Spade Eight||x==Card Heart Eight))>1 &&
+    | length (filter(\x->x==Card Spade Six||x==Card Spade Eight||x==Card Heart Eight) hand)>1 &&
     Card s r==Card Spade Six||Card s r==Card Spade Eight||Card s r==Card Heart Eight=True
 
     |otherwise=False
@@ -92,7 +92,7 @@ getOpponentHandfromMemory Nothing=[]
 
 getDiscardPilefromMemory::Maybe PlayerMemory -> [Card]
 getDiscardPilefromMemory (Just (PlayerMemory(a,b)))=b
-getDiscardPilefromMemory Nothing=[]
+getDiscardPilefromMemory Nothing= []
 
 gDPfM:: PlayerMemory -> [Card]
 gDPfM (PlayerMemory (a,b))=b
@@ -123,13 +123,6 @@ rankofcard :: Card -> Rank
 rankofcard (Card _ r) = r
 
 
-
--- type PlayFunc
---   = Card              -- ^ last picked card
---   -> String           -- ^ the player's memory
---   -> [Card]           -- ^ the player's hand
---   -> (Action, String) -- ^ the player's chosen card and new state
-
 -- type PlayFunc
 --   = Card              -- ^ picked card
 --   -> (Score, Score)   -- ^ scores of (player, opponent) as of last round
@@ -147,8 +140,8 @@ rankofcard (Card _ r) = r
 --   = String  -- ^ the player's memory
 --   -> [Card] -- ^ cards in player's hand
 --   -> [Meld] -- ^ elected melds
-makeMelds :: MeldFunc
-makeMelds x y=[Deadwood (Card Heart Ace)]
+-- makeMelds :: MeldFunc
+-- makeMelds x y=[Deadwood (Card Heart Ace)]
 
 
 --Defensive strategy -- don't knock, try for gin.  If opponent discard a Card- check the suit. Dont make knocks late in the game
@@ -156,11 +149,31 @@ makeMelds x y=[Deadwood (Card Heart Ace)]
 --discarding a specific card you need for the sequence, discard the same value card but another suit and they probably discard your card
 
 checkPercentageofCardsPlayed:: PlayerMemory -> Int
-checkPercentageofCardsPlayed mem=((length (gDPfM mem)+ length (gOHfM mem) + 10 + 10) / 52) * 100
+checkPercentageofCardsPlayed mem=((length (gDPfM mem)+ length (gOHfM mem) + 10 + 10) `div` 52) * 100
 
 
-checkOpponentDiscardsSuits :: PlayerMemory -> [Suit]
-checkOpponentDiscardsSuits mem =gOHfM mem
+checkOpponentSuits :: PlayerMemory -> [Suit]
+checkOpponentSuits mem =getSuitfromListofCards (gOHfM  mem)
+
+checkDiscardPileSuits :: PlayerMemory -> [Suit]
+checkDiscardPileSuits mem= getSuitfromListofCards (gDPfM mem)
 
 getSuitfromListofCards :: [Card] -> [Suit]
-getSuitfromListofCards ((Card s r):xs)=(s:getSuitfromListofCards xs)
+getSuitfromListofCards ((Card s r):xs)=s:getSuitfromListofCards xs
+getSuitfromListofCards []=  []
+
+
+
+
+-- Don't knock, try to form melds, only discard opponents discarded suits/ranks, discard high value cards first
+-- defensivePlay :: Card -> String -> [Card] ->Action
+-- defensivePlay (Card x y) mem  hand=
+--     let opp= checkOpponentSuits mem
+
+-- chooseHighestValueCardfromDeck ::[Card] -> Card
+-- chooseHighestValueCardfromDeck= maximum
+
+
+
+chooseHighestValueCardofSameSuit :: [Card] ->Suit ->  Card
+chooseHighestValueCardofSameSuit hand suit = maximum(filter (\(Card s r)->s==suit) hand)
