@@ -14,7 +14,6 @@ unexpectedCharParser = P . const . Error . UnexpectedChar
 --   * the produced character is not equal to the given character.
 -- >>> parse (is 'c') "c"
 -- Result >< 'c'
---
 -- >>> isErrorResult (parse (is 'c') "")
 -- True
 -- >>> isErrorResult (parse (is 'c') "b")
@@ -29,10 +28,8 @@ is c = do
 -- an error if the input is empty.
 -- >>> parse character "abc"
 -- Result >bc< 'a'
---
 -- >>> isErrorResult (parse character "")
 -- True
---
 character :: Parser Char
 character = P parseit
   where parseit "" = Error UnexpectedEof
@@ -48,7 +45,6 @@ character = P parseit
 -- Result >< 'v'
 -- >>> parse (character ||| pure 'v') "abc"
 -- Result >bc< 'a'
---
 -- >>> parse (failed UnexpectedEof ||| pure 'v') "abc"
 -- Result >abc< 'v'
 (|||) :: Parser a -> Parser a -> Parser a

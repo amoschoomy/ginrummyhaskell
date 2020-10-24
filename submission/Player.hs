@@ -32,10 +32,12 @@ data PlayerMemory=PlayerMemory ([Card],[Card])
 --   -> Maybe Draw -- ^ opponent's chosen action, on first game turn it will be Nothing
 --   -> [Card]     -- ^ the player's hand
 --   -> (Draw, String) -- ^ which pile did the player chose to draw from
+
+--TODO: Parse String to PlayerMemory vice versa so pickCard function can be complete
 pickCard :: ActionFunc
 pickCard (Card f x) score Nothing Nothing hand --base case when at start of the game
     | uncurry (-) score> -25 && offensiveStratforPicking (Card f x) hand =(Discard,"()")
-    |sameAny rankofcard (Card f x) hand || ranksInBetweenSameSuitPresent (hand) (Card f x) =(Discard,"()")
+    |sameAny rankofcard (Card f x) hand || ranksInBetweenSameSuitPresent hand (Card f x) =(Discard,"()")
     |otherwise=(Stock,"()")
 
 pickCard (Card f x) score (Just mem)  (Just Stock) hand --opponent choose to stock
@@ -92,6 +94,11 @@ getDiscardPilefromMemory::Maybe PlayerMemory -> [Card]
 getDiscardPilefromMemory (Just (PlayerMemory(a,b)))=b
 getDiscardPilefromMemory Nothing=[]
 
+gDPfM:: PlayerMemory -> [Card]
+gDPfM (PlayerMemory (a,b))=b
+
+gOHfM :: PlayerMemory -> [Card]
+gOHfM (PlayerMemory (a,b))=a
 
 filterSameSuit :: [Card] -> Suit -> [Card]
 filterSameSuit cards suit=filter isSameSuit cards
@@ -123,10 +130,16 @@ rankofcard (Card _ r) = r
 --   -> [Card]           -- ^ the player's hand
 --   -> (Action, String) -- ^ the player's chosen card and new state
 
+-- type PlayFunc
+--   = Card              -- ^ picked card
+--   -> (Score, Score)   -- ^ scores of (player, opponent) as of last round
+--   -> String           -- ^ the player's memory
+--   -> [Card]           -- ^ the player's hand
+--   -> (Action, String) -- ^ the player's chosen card and new state
 
-
-playCard :: PlayFunc
-playCard (Card f x) mem hand=(Action Knock (head hand),"LOL")
+-- playCard :: PlayFunc
+-- playCard (Card f x) score mem hand
+--     | 
 -- | This function is called at the end of the game when you need to return the
 -- melds you formed with your last hand.
 
@@ -136,3 +149,18 @@ playCard (Card f x) mem hand=(Action Knock (head hand),"LOL")
 --   -> [Meld] -- ^ elected melds
 makeMelds :: MeldFunc
 makeMelds x y=[Deadwood (Card Heart Ace)]
+
+
+--Defensive strategy -- don't knock, try for gin.  If opponent discard a Card- check the suit. Dont make knocks late in the game
+-- Offensive strategy, knock early, form multiple melds, only go for gin if half the deck is played, bait opponeents
+--discarding a specific card you need for the sequence, discard the same value card but another suit and they probably discard your card
+
+checkPercentageofCardsPlayed:: PlayerMemory -> Int
+checkPercentageofCardsPlayed mem=((length (gDPfM mem)+ length (gOHfM mem) + 10 + 10) / 52) * 100
+
+
+checkOpponentDiscardsSuits :: PlayerMemory -> [Suit]
+checkOpponentDiscardsSuits mem =gOHfM mem
+
+getSuitfromListofCards :: [Card] -> [Suit]
+getSuitfromListofCards ((Card s r):xs)=(s:getSuitfromListofCards xs)
