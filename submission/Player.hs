@@ -34,24 +34,24 @@ data PlayerMemory=PlayerMemory ([Card],[Card])
 --   -> (Draw, String) -- ^ which pile did the player chose to draw from
 
 --TODO: Parse String to PlayerMemory vice versa so pickCard function can be complete
-pickCard :: ActionFunc
-pickCard (Card f x) score Nothing Nothing hand --base case when at start of the game
-    | uncurry (-) score> -25 && offensiveStratforPicking (Card f x) hand =(Discard,"()")
-    |sameAny rankofcard (Card f x) hand || ranksInBetweenSameSuitPresent hand (Card f x) =(Discard,"()")
-    |otherwise=(Stock,"()")
+-- pickCard :: ActionFunc
+-- pickCard (Card f x) score Nothing Nothing hand --base case when at start of the game
+--     | uncurry (-) score> -25 && offensiveStratforPicking (Card f x) hand =(Discard,"()")
+--     |sameAny rankofcard (Card f x) hand || ranksInBetweenSameSuitPresent hand (Card f x) =(Discard,"()")
+--     |otherwise=(Stock,"()")
 
-pickCard (Card f x) score (Just mem)  (Just Stock) hand --opponent choose to stock
-    --if opponet chose from stock, we know that, previous card of Discard pile is not favourable to opponent
-    --TODO: parse string to player memory type
-    | uncurry (-) score> -25 && offensiveStratforPicking (Card f x) hand =(Discard,"()")
-    |drawFromDiscardGeneralStrat (Card f x) hand (Just mem) = (Discard,"()")
-    |otherwise=(Stock,"()")
-pickCard (Card f x) score (Just mem) (Just Discard) hand--opponent choose to discard
-    -- if opponent choose to discard, we should prevent any more same rank or ranks(same suit) around being taken in the pile.
-    | uncurry (-) score> -25 && offensiveStratforPicking (Card f x) hand =(Discard,"()")
-    | drawFromDiscardGeneralStrat (Card f x) hand (Just mem) || ranksInBetweenSameSuitPresent hand (Card f x) =(Discard,"()")
-    | otherwise=(Stock,"()")
-pickCard (Card _ _)_  _ _ _=undefined
+-- pickCard (Card f x) score (Just mem)  (Just Stock) hand --opponent choose to stock
+--     --if opponet chose from stock, we know that, previous card of Discard pile is not favourable to opponent
+--     --TODO: parse string to player memory type
+--     | uncurry (-) score> -25 && offensiveStratforPicking (Card f x) hand =(Discard,"()")
+--     |drawFromDiscardGeneralStrat (Card f x) hand (Just mem) = (Discard,"()")
+--     |otherwise=(Stock,"()")
+-- pickCard (Card f x) score (Just mem) (Just Discard) hand--opponent choose to discard
+--     -- if opponent choose to discard, we should prevent any more same rank or ranks(same suit) around being taken in the pile.
+--     | uncurry (-) score> -25 && offensiveStratforPicking (Card f x) hand =(Discard,"()")
+--     | drawFromDiscardGeneralStrat (Card f x) hand (Just mem) || ranksInBetweenSameSuitPresent hand (Card f x) =(Discard,"()")
+--     | otherwise=(Stock,"()")
+-- pickCard (Card _ _)_  _ _ _=undefined
 
 offensiveStratforPicking :: Card -> [Card] -> Bool
 offensiveStratforPicking (Card s r) hand 
@@ -177,3 +177,42 @@ getSuitfromListofCards []=  []
 
 chooseHighestValueCardofSameSuit :: [Card] ->Suit ->  Card
 chooseHighestValueCardofSameSuit hand suit = maximum(filter (\(Card s r)->s==suit) hand)
+
+
+-- validMeld :: PlayerId -> Meld -> Either GameError Meld
+-- validMeld playerId meld = case meld of
+--   Deadwood _ -> Right meld
+--   Set3 a b c -> toEither (sameRank a [b, c]) meld setError
+--   Set4 a b c d -> toEither (sameRank a [b, c, d]) meld setError
+--   _ -> checkStraight playerId meld
+--   where
+--     setError = GameError SetError playerId
+--     rank (Card _ r) = r
+--     sameRank = same rank
+
+same :: Eq b => (t -> b) -> t -> [t] -> Bool
+same f c xs = all (== f c) (map f xs)
+
+-- checkPossibleMeld :: -> [Card] -> [Meld]
+-- checkPossibleMeld hand
+-- data Meld =
+--       Deadwood Card            -- An unmelded card
+--     | Set3 Card Card Card      -- 3 cards of same rank different suit
+--     | Set4 Card Card Card Card -- 4 cards of same rank different suit
+--     | Straight3 Card Card Card -- 3 cards of same suit, sequential ranks
+--     | Straight4 Card Card Card Card -- 4 cards of same suit, sequential ranks
+--     | Straight5 Card Card Card Card Card -- 5 cards of same suit, sequential rank
+
+-- sameSuitSequentialRank :: [Card] -> Bool
+-- sameSuitSequentialRank []=False
+-- sameSuitSequentialRank hand
+loc=[Card Heart Five, Card Heart Six,Card Diamond Four, Card Club Seven, Card Spade King,Card Spade Four,Card Club Five]
+
+possibleMeldLengths :: [Card] -> [[Card]]
+possibleMeldLengths hand= filter (\x->length x>=2 && length x<=5) (subsequences hand)
+
+checkStraightMeld :: [Card] ->Bool
+--To circumvent the base case checks, we will enforce the minimum length in subsequences instead.
+checkStraightMeld ((Card s r):(Card a b):xs) =(r<b) && checkStraightMeld (Card a b:xs) 
+checkStraightMeld []=True
+checkStraightMeld [Card s r]=True
