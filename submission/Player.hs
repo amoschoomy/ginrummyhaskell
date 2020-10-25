@@ -179,22 +179,11 @@ chooseHighestValueCardofSameSuit :: [Card] ->Suit ->  Card
 chooseHighestValueCardofSameSuit hand suit = maximum(filter (\(Card s r)->s==suit) hand)
 
 
--- validMeld :: PlayerId -> Meld -> Either GameError Meld
--- validMeld playerId meld = case meld of
---   Deadwood _ -> Right meld
---   Set3 a b c -> toEither (sameRank a [b, c]) meld setError
---   Set4 a b c d -> toEither (sameRank a [b, c, d]) meld setError
---   _ -> checkStraight playerId meld
---   where
---     setError = GameError SetError playerId
---     rank (Card _ r) = r
---     sameRank = same rank
 
 same :: Eq b => (t -> b) -> t -> [t] -> Bool
 same f c xs = all (== f c) (map f xs)
 
--- checkPossibleMeld :: -> [Card] -> [Meld]
--- checkPossibleMeld hand
+
 -- data Meld =
 --       Deadwood Card            -- An unmelded card
 --     | Set3 Card Card Card      -- 3 cards of same rank different suit
@@ -203,10 +192,8 @@ same f c xs = all (== f c) (map f xs)
 --     | Straight4 Card Card Card Card -- 4 cards of same suit, sequential ranks
 --     | Straight5 Card Card Card Card Card -- 5 cards of same suit, sequential rank
 
--- sameSuitSequentialRank :: [Card] -> Bool
--- sameSuitSequentialRank []=False
--- sameSuitSequentialRank hand
-loc=[Card Heart Five, Card Heart Six,Card Diamond Four, Card Club Seven, Card Spade King,Card Spade Four,Card Club Five]
+
+-- loc=[Card Heart Five, Card Heart Six,Card Diamond Four, Card Club Seven, Card Spade King,Card Spade Four,Card Club Five]
 
 possibleMeldLengths :: [Card] -> [[Card]]
 possibleMeldLengths hand= filter (\x->length x>=2 && length x<=5) (subsequences hand)
@@ -216,3 +203,7 @@ checkStraightMeld :: [Card] ->Bool
 checkStraightMeld ((Card s r):(Card a b):xs) =(r<b) && checkStraightMeld (Card a b:xs) 
 checkStraightMeld []=True
 checkStraightMeld [Card s r]=True
+
+checkSetMeld :: [Card] -> Bool
+checkSetMeld (Card s r:xs) = all (\(Card x y) -> x /= s && r==y ) xs
+checkSetMeld []=True
