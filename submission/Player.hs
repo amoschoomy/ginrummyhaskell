@@ -10,6 +10,8 @@ import Cards         -- Finally, the generic card type(s)
 import Prelude
 import Rummy.Rules
 import Data.List
+import Data.Maybe
+import Control.Applicative
 
 --Data Structure for PlayerMemory
 data PlayerMemory=PlayerMemory ([Card],[Card])
@@ -213,15 +215,36 @@ calculateDeadwoodScores hand =   sum  (map toPoints hand)
 
 --Out of all the deadwood combinations, we have to find unique deadwoods that yield the least total deadwood score
 
+selectBestPossibleMelds :: [[Card]] ->[Card]-> [Int]
+selectBestPossibleMelds (x:xs) hand=reverse $ foldr(\ p -> (:) (calculateDeadwoodScores (getDeadwoods p hand))) [calculateDeadwoodScores (getDeadwoods x hand)] xs
+selectBestPossibleMelds [] hand=[calculateDeadwoodScores(getDeadwoods hand hand)]
 
-
-listAllPossibleMelds :: [Card] -> [[Card]]
-listAllPossibleMelds hand = filter  possibleMeld $ filter (\x->length x>=2 && length x<=5) (subsequences (sort $hand))
+listAllPossibleMelds :: [Card] ->Card-> [[Card]]
+listAllPossibleMelds hand card = filter  possibleMeld $ filter (\x->length x>=3 && length x<=5) (subsequences (sort $hand++[card]))
 
 possibleMeld :: [Card] -> Bool
 possibleMeld hand =checkSetMeld hand || checkStraightMeld hand
 
--- qcards=[Card Heart Nine, Card Heart Ten, Card Heart King]
+-- qcards=[Card Heart Nine, Card Heart Ten, Card Heart King, Card Diamond Ace, Card Diamond Ten, Card Club Ten]
+
+
+formMelds :: [Card] -> Meld
+formMelds l@[a,b,c]= x a b c where
+    x=if checkStraightMeld l then Straight3 else Set3
+formMelds []=undefined
+formMelds [x]=Deadwood x
+formMelds l@[a,b,c,d]= x a b c d where
+    x=if checkStraightMeld l then Straight4 else Set4
+formMelds l@[a,b,c,d,e]= Straight5 a b c d e
+formMelds l@(x:xs)=undefined
+
+exists :: Eq a => [a] -> [a] -> Bool
+exists x y = or $ (==) <$> x <*> y
+
+
+meldCombos :: [[Card]] -> [Int] -> [[Card]]
+meldCombos l@(x:xs) value=filter (\p->(exists p x && value!!fromJust (elemIndex p l)< value!!fromJust (elemIndex x l))||not (exists p x) ) xs
+meldCombos [] value=[]
 
 
 
