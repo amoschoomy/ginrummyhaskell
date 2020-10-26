@@ -165,7 +165,7 @@ getSuitfromListofCards []=  []
 
 
 
--- Don't knock, try to form melds, only discard opponents discarded suits/ranks, discard high value cards first
+-- Don't knock, try to form melds for gin, only discard opponents discarded suits/ranks, discard high value cards first
 -- defensivePlay :: Card -> String -> [Card] ->Action
 -- defensivePlay (Card x y) mem  hand=
 --     let opp= checkOpponentSuits mem
@@ -199,11 +199,36 @@ possibleMeldLengths :: [Card] -> [[Card]]
 possibleMeldLengths hand= filter (\x->length x>=2 && length x<=5) (subsequences hand)
 
 checkStraightMeld :: [Card] ->Bool
---To circumvent the base case checks, we will enforce the minimum length in subsequences instead.
-checkStraightMeld ((Card s r):(Card a b):xs) =(r<b) && checkStraightMeld (Card a b:xs) 
-checkStraightMeld []=True
-checkStraightMeld [Card s r]=True
+checkStraightMeld list@(Card s r:xs)= toPoints (last list) - toPoints (head list)== length list-1 && all(\(Card x y)-> x==s) xs
+checkStraightMeld []=False
 
 checkSetMeld :: [Card] -> Bool
 checkSetMeld (Card s r:xs) = all (\(Card x y) -> x /= s && r==y ) xs
-checkSetMeld []=True
+checkSetMeld []=False
+
+listAllPossibleMelds :: [[Card]] -> [[Card]]
+listAllPossibleMelds =filter (\x->checkStraightMeld x || checkSetMeld x)
+
+getDeadwoods :: [Card] ->[Card] -> [Card]
+getDeadwoods meld hand = hand \\ meld
+
+--We need to form melds, such that each melds are uniquely composed of diffeent cards.
+
+
+calculateDeadwoodScores :: [Card] ->Int
+calculateDeadwoodScores hand =   sum  (map toPoints hand)
+
+-- [[Card]] -> Int
+
+--Out of all the deadwood combinations, we have to find unique deadwoods that yield the least total deadwood score
+
+compareList :: (Eq a) => [a] -> [a] -> Bool
+compareList a = null . intersect a
+
+-- getBestMeldCombos:: [[Card]] -> [[Card]]
+-- getBestMeldCombos hand=  filter (\x-> \y ->compareList x y) hand
+-- getBestMeldCombos []=[]
+-- getBestMeldCombos [[]]=[]
+-- getBestMeldCombos [x]= [x]
+
+-- testCard=[[Card Heart Four, Card Heart Five, Card Heart Jack],[Card Diamond Ace, Card Spade Queen,Card Club Four],[Card Heart Six,Card Heart King, Card Heart Ten]]
