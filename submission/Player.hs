@@ -178,12 +178,6 @@ getSuitfromListofCards []=  []
 chooseHighestValueCardofSameSuit :: [Card] ->Suit ->  Card
 chooseHighestValueCardofSameSuit hand suit = maximum(filter (\(Card s r)->s==suit) hand)
 
-
-
-same :: Eq b => (t -> b) -> t -> [t] -> Bool
-same f c xs = all (== f c) (map f xs)
-
-
 -- data Meld =
 --       Deadwood Card            -- An unmelded card
 --     | Set3 Card Card Card      -- 3 cards of same rank different suit
@@ -195,19 +189,17 @@ same f c xs = all (== f c) (map f xs)
 
 -- loc=[Card Heart Five, Card Heart Six,Card Diamond Four, Card Club Seven, Card Spade King,Card Spade Four,Card Club Five]
 
-possibleMeldLengths :: [Card] -> [[Card]]
-possibleMeldLengths hand= filter (\x->length x>=2 && length x<=5) (subsequences hand)
+cardToPoints :: Card->Int
+cardToPoints (Card _ rank) = fromEnum rank + 1
 
 checkStraightMeld :: [Card] ->Bool
-checkStraightMeld list@(Card s r:xs)= toPoints (last list) - toPoints (head list)== length list-1 && all(\(Card x y)-> x==s) xs
+checkStraightMeld list@(Card s r:xs)= cardToPoints (last list)-cardToPoints (head list) == (length list - 1)&& all(\(Card x y)-> x==s) xs
 checkStraightMeld []=False
 
 checkSetMeld :: [Card] -> Bool
 checkSetMeld (Card s r:xs) = all (\(Card x y) -> x /= s && r==y ) xs
 checkSetMeld []=False
 
-listAllPossibleMelds :: [[Card]] -> [[Card]]
-listAllPossibleMelds =filter (\x->checkStraightMeld x || checkSetMeld x)
 
 getDeadwoods :: [Card] ->[Card] -> [Card]
 getDeadwoods meld hand = hand \\ meld
@@ -218,17 +210,20 @@ getDeadwoods meld hand = hand \\ meld
 calculateDeadwoodScores :: [Card] ->Int
 calculateDeadwoodScores hand =   sum  (map toPoints hand)
 
--- [[Card]] -> Int
 
 --Out of all the deadwood combinations, we have to find unique deadwoods that yield the least total deadwood score
 
-compareList :: (Eq a) => [a] -> [a] -> Bool
-compareList a = null . intersect a
 
--- getBestMeldCombos:: [[Card]] -> [[Card]]
--- getBestMeldCombos hand=  filter (\x-> \y ->compareList x y) hand
--- getBestMeldCombos []=[]
--- getBestMeldCombos [[]]=[]
--- getBestMeldCombos [x]= [x]
 
--- testCard=[[Card Heart Four, Card Heart Five, Card Heart Jack],[Card Diamond Ace, Card Spade Queen,Card Club Four],[Card Heart Six,Card Heart King, Card Heart Ten]]
+listAllPossibleMelds :: [Card] -> [[Card]]
+listAllPossibleMelds hand = filter  possibleMeld $ filter (\x->length x>=2 && length x<=5) (subsequences (sort $hand))
+
+possibleMeld :: [Card] -> Bool
+possibleMeld hand =checkSetMeld hand || checkStraightMeld hand
+
+-- qcards=[Card Heart Nine, Card Heart Ten, Card Heart King]
+
+
+
+
+-- meld= Straight3 (Card Heart Nine) (Card Heart Ten) (Card Heart Queen)
