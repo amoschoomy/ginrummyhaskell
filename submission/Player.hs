@@ -12,9 +12,76 @@ import Rummy.Rules
 import Data.List
 import Data.Maybe
 import Control.Applicative
+import Parser.Instances
+import GHC.Unicode
+
+instance Show Card where
+    show (Card Heart a)="Card Heart "++ show a
+    show (Card Diamond a)="Card Diamond "++ show a
+    show (Card Spade a)="Card Spade " ++ show a
+    show (Card Club a)="Card Club "++show a
+
+instance Show Suit where
+    show Heart="Heart"
+    show Spade="Spade"
+    show Diamond="Diamond"
+    show Club="Club"
+
+instance Show Rank where
+    show Ace="Ace"
+    show Two="Two"
+    show Three="Three"
+    show Four="Four"
+    show Five="Five"
+    show Six="Six"
+    show Seven="Seven"
+    show Eight="Eight"
+    show Nine="Nine"
+    show Ten="Ten"
+    show Jack="Jack"
+    show Queen="Queen"
+    show King="King"
 
 --Data Structure for PlayerMemory
 data PlayerMemory=PlayerMemory ([Card],[Card])
+    deriving(Show)
+
+
+data Memory=Memory{cardsPlayed::Int,opponentCard::String,discardPile::String} deriving Show
+
+
+parsenumbercardsPlayed :: String ->Maybe(Int,String)
+parsenumbercardsPlayed =readInt
+
+parsePile :: String -> Maybe[Char]
+parsePile string= runParser(parse (list character) string) 
+
+
+
+compileStringintoMemory::Maybe (Int,String) -> Maybe [Char] -> Maybe [Char] -> Memory
+compileStringintoMemory (Just (a,b)) (Just op) (Just discard)=Memory {cardsPlayed=a,opponentCard=op,discardPile=discard} 
+compileStringintoMemory Nothing (Just op) (Just discard)=Memory{cardsPlayed=0,opponentCard=op,discardPile=discard}
+compileStringintoMemory Nothing Nothing (Just discard)=Memory{cardsPlayed=0,opponentCard="",discardPile=discard}
+compileStringintoMemory Nothing Nothing Nothing=Memory{opponentCard="",cardsPlayed=0,discardPile=""}
+compileStringintoMemory Nothing (Just op) Nothing=Memory{opponentCard=op,cardsPlayed=0,discardPile=""}
+compileStringintoMemory (Just (a, b)) Nothing (Just discard)=Memory{cardsPlayed=a,opponentCard="",discardPile=discard}
+compileStringintoMemory (Just (a, b)) (Just op) Nothing=Memory{cardsPlayed=a,opponentCard=op,discardPile=""}
+compileStringintoMemory (Just (a,b)) Nothing Nothing=Memory{cardsPlayed=a}
+
+
+list :: Parser a -> Parser [a]
+list p = (do
+    first <- p
+    rest <- list p
+    pure (first:rest)) ||| pure []
+
+
+
+runParser :: ParseResult a -> Maybe a
+runParser (Result b a)=Just a
+runParser (Error _)=Nothing
+
+-- (opponent,discard) This is how its shown in memory string
 
 -- Opponent chosen cards up to that turn
 -- discard pile
@@ -78,29 +145,14 @@ ranksInBetweenSameSuitPresent  hand (Card f x)
     |not (null (filterRankLess (filterSameSuit hand f) x)) && not (null (filterRankMore (filterSameSuit hand f) x))=True
     |otherwise=False
 
-drawFromDiscardGeneralStrat ::Card -> [Card] -> Maybe PlayerMemory -> Bool
-drawFromDiscardGeneralStrat (Card x y) playerhand (Just playermemory)
-    | not(null(filterSameRank (getDiscardPilefromMemory (Just playermemory)) y))=True
-    | length (filterSameRank playerhand y)==2 = True --If player at hand can form a possible run, discard
-    | length (filterSameRank (getOpponentHandfromMemory (Just playermemory)) y)>1=True --if opponent can form a run at the discard pile, take it
-    | otherwise = False
-drawFromDiscardGeneralStrat (Card x y) playerhand Nothing=False
+-- drawFromDiscardGeneralStrat ::Card -> [Card] -> Maybe PlayerMemory -> Bool
+-- drawFromDiscardGeneralStrat (Card x y) playerhand (Just playermemory)
+--     | not(null(filterSameRank (getDiscardPilefromMemory (Just playermemory)) y))=True
+--     | length (filterSameRank playerhand y)==2 = True --If player at hand can form a possible run, discard
+--     | length (filterSameRank (getOpponentHandfromMemory (Just playermemory)) y)>1=True --if opponent can form a run at the discard pile, take it
+--     | otherwise = False
+-- drawFromDiscardGeneralStrat (Card x y) playerhand Nothing=False
 
-
-
-getOpponentHandfromMemory::Maybe PlayerMemory ->[Card]
-getOpponentHandfromMemory (Just (PlayerMemory(a,b)))=a
-getOpponentHandfromMemory Nothing=[]
-
-getDiscardPilefromMemory::Maybe PlayerMemory -> [Card]
-getDiscardPilefromMemory (Just (PlayerMemory(a,b)))=b
-getDiscardPilefromMemory Nothing= []
-
-gDPfM:: PlayerMemory -> [Card]
-gDPfM (PlayerMemory (a,b))=b
-
-gOHfM :: PlayerMemory -> [Card]
-gOHfM (PlayerMemory (a,b))=a
 
 filterSameSuit :: [Card] -> Suit -> [Card]
 filterSameSuit cards suit=filter isSameSuit cards
@@ -133,7 +185,7 @@ rankofcard (Card _ r) = r
 --   -> (Action, String) -- ^ the player's chosen card and new state
 
 -- playCard :: PlayFunc
--- playCard (Card f x) score mem hand
+-- playCard (Card f x) score mem hand=meldCombos(listAllPossibleMelds hand (Card f x)) (selectBestPossibleMelds (listAllPossibleMelds hand (Card f x)))
 --     | 
 -- | This function is called at the end of the game when you need to return the
 -- melds you formed with your last hand.
@@ -150,19 +202,17 @@ rankofcard (Card _ r) = r
 -- Offensive strategy, knock early, form multiple melds, only go for gin if half the deck is played, bait opponeents
 --discarding a specific card you need for the sequence, discard the same value card but another suit and they probably discard your card
 
-checkPercentageofCardsPlayed:: PlayerMemory -> Int
-checkPercentageofCardsPlayed mem=((length (gDPfM mem)+ length (gOHfM mem) + 10 + 10) `div` 52) * 100
 
 
-checkOpponentSuits :: PlayerMemory -> [Suit]
-checkOpponentSuits mem =getSuitfromListofCards (gOHfM  mem)
+-- checkOpponentSuits :: PlayerMemory -> [Suit]
+-- checkOpponentSuits mem =getSuitfromListofCards (gOHfM  mem)
 
-checkDiscardPileSuits :: PlayerMemory -> [Suit]
-checkDiscardPileSuits mem= getSuitfromListofCards (gDPfM mem)
+-- checkDiscardPileSuits :: PlayerMemory -> [Suit]
+-- checkDiscardPileSuits mem= getSuitfromListofCards (gDPfM mem)
 
-getSuitfromListofCards :: [Card] -> [Suit]
-getSuitfromListofCards ((Card s r):xs)=s:getSuitfromListofCards xs
-getSuitfromListofCards []=  []
+-- getSuitfromListofCards :: [Card] -> [Suit]
+-- getSuitfromListofCards ((Card s r):xs)=s:getSuitfromListofCards xs
+-- getSuitfromListofCards []=  []
 
 
 
@@ -228,16 +278,19 @@ possibleMeld hand =checkSetMeld hand || checkStraightMeld hand
 -- qcards=[Card Heart Nine, Card Heart Ten, Card Heart King, Card Diamond Ace, Card Diamond Ten, Card Club Ten]
 
 
-formMelds :: [Card] -> Meld
-formMelds l@[a,b,c]= x a b c where
-    x=if checkStraightMeld l then Straight3 else Set3
-formMelds []=undefined
-formMelds [x]=Deadwood x
-formMelds l@[a,b,c,d]= x a b c d where
-    x=if checkStraightMeld l then Straight4 else Set4
-formMelds l@[a,b,c,d,e]= Straight5 a b c d e
-formMelds l@(x:xs)=undefined
+-- formMelds :: [Card] -> Meld
+-- formMelds l@[a,b,c]= x a b c where
+--     x=if checkStraightMeld l then Straight3 else Set3
+-- formMelds []=undefined
+-- formMelds [x]=Deadwood x
+-- formMelds l@[a,b,c,d]= x a b c d where
+--     x=if checkStraightMeld l then Straight4 else Set4
+-- formMelds l@[a,b,c,d,e]= Straight5 a b c d e
+-- formMelds l@(x:xs)=undefined
 
+
+
+--Referenced from https://stackoverflow.com/a/47004828/
 exists :: Eq a => [a] -> [a] -> Bool
 exists x y = or $ (==) <$> x <*> y
 
@@ -245,7 +298,6 @@ exists x y = or $ (==) <$> x <*> y
 meldCombos :: [[Card]] -> [Int] -> [[Card]]
 meldCombos l@(x:xs) value=filter (\p->(exists p x && value!!fromJust (elemIndex p l)< value!!fromJust (elemIndex x l))||not (exists p x) ) xs
 meldCombos [] value=[]
-
 
 
 

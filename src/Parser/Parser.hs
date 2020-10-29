@@ -55,6 +55,7 @@ p1 ||| p2 = P (\i -> let f (Error _) = parse p2 i
 -- chain p op parses 1 or more instances of p
 -- separated by op
 -- (see chainl1 from Text.Parsec)
+
 chain :: Parser a -> Parser (a->a->a) -> Parser a
 chain p op = p >>= rest
    where
