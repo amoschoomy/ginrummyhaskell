@@ -42,85 +42,104 @@ instance Show Rank where
     show Queen="Queen"
     show King="King"
 
---Data Structure for PlayerMemory
-data PlayerMemory=PlayerMemory ([Card],[Card])
-    deriving(Show)
 
 
 data Memory=Memory{cardsPlayed::Int,opponentCard::String,discardPile::String} deriving Show
 
 
+
+wordsWhen :: (Char->Bool)->String->[String]
+wordsWhen p s=case dropWhile p s of
+    ""->[]
+    s' -> w: wordsWhen p s''
+        where (w,s'')=break p s'
+
 parsenumbercardsPlayed :: String ->Maybe(Int,String)
 parsenumbercardsPlayed =readInt
 
-parsePile :: String -> Maybe[Char]
-parsePile string= runParser(parse (list character) string) 
+getnumbercardsPlayed :: Maybe(Int,String)-> Int
+getnumbercardsPlayed (Just (a,b))=a
+getnumbercardsPlayed Nothing=0
+
+getRemainingString :: Maybe(Int,String)->String
+getRemainingString (Just(_,a))=a
+getRemainingString Nothing=""
 
 
+getOpponentPile :: String -> String
+getOpponentPile x =head (wordsWhen (=='|') x)
 
-compileStringintoMemory::Maybe (Int,String) -> Maybe [Char] -> Maybe [Char] -> Memory
-compileStringintoMemory (Just (a,b)) (Just op) (Just discard)=Memory {cardsPlayed=a,opponentCard=op,discardPile=discard} 
-compileStringintoMemory Nothing (Just op) (Just discard)=Memory{cardsPlayed=0,opponentCard=op,discardPile=discard}
-compileStringintoMemory Nothing Nothing (Just discard)=Memory{cardsPlayed=0,opponentCard="",discardPile=discard}
-compileStringintoMemory Nothing Nothing Nothing=Memory{opponentCard="",cardsPlayed=0,discardPile=""}
-compileStringintoMemory Nothing (Just op) Nothing=Memory{opponentCard=op,cardsPlayed=0,discardPile=""}
-compileStringintoMemory (Just (a, b)) Nothing (Just discard)=Memory{cardsPlayed=a,opponentCard="",discardPile=discard}
-compileStringintoMemory (Just (a, b)) (Just op) Nothing=Memory{cardsPlayed=a,opponentCard=op,discardPile=""}
-compileStringintoMemory (Just (a,b)) Nothing Nothing=Memory{cardsPlayed=a}
+getDiscardPile :: String -> String
+getDiscardPile x=last (wordsWhen (=='|')x)
 
 
-list :: Parser a -> Parser [a]
-list p = (do
-    first <- p
-    rest <- list p
-    pure (first:rest)) ||| pure []
+compileCardsPlayedMemorytoString :: Memory -> [Char]
+compileCardsPlayedMemorytoString x= show (cardsPlayed x)
+
+compileopponentCardMemorytoString :: Memory -> String
+compileopponentCardMemorytoString =opponentCard
+
+compileDiscardPiletoString :: Memory -> String
+compileDiscardPiletoString =discardPile
+
+compileStringintoMemory :: String -> Memory
+compileStringintoMemory x= Memory{cardsPlayed=getnumbercardsPlayed(readInt x),
+opponentCard=getOpponentPile(getRemainingString (readInt x)),
+discardPile=getDiscardPile(getRemainingString (readInt x))}
+
+updateMemory :: Memory -> String -> String -> Memory
+updateMemory memory newpile newdiscardpile =Memory{cardsPlayed=cardsPlayed memory+1,
+opponentCard=newpile++opponentCard memory,
+discardPile=newdiscardpile++ discardPile memory}
+
+memorytoString :: Memory -> String
+memorytoString x=compileCardsPlayedMemorytoString x ++"|" ++compileopponentCardMemorytoString x ++"|"++ compileDiscardPiletoString x
 
 
+pickCard :: ActionFunc
+pickCard (Card f x) score Nothing Nothing hand --base case when at start of the game
 
-runParser :: ParseResult a -> Maybe a
-runParser (Result b a)=Just a
-runParser (Error _)=Nothing
+    --If losing by 25, launch offensive strategy
+    | uncurry (-) score> -25 && offensiveStratforPicking (Card f x) hand =(Discard,memorytoString Memory{cardsPlayed=1,opponentCard="",discardPile=""})
 
--- (opponent,discard) This is how its shown in memory string
+    --check player hand and the card on top of discard pile
+    -- such that if there is ranksInBetweenSameSuitPresent or any same rank of cards then choose from discard pile
+    |sameAny rankofcard (Card f x) hand || ranksInBetweenSameSuitPresent hand (Card f x) =(Discard,memorytoString Memory{cardsPlayed=1,opponentCard="",discardPile=""})
+    
+    --else, get from Stock
+    |otherwise=(Stock,memorytoString Memory{cardsPlayed=1,opponentCard="",discardPile=show (Card f x)})
 
--- Opponent chosen cards up to that turn
--- discard pile
--- Opponenet cards predicted supposed to be taken
 
---Functions will take Maybe String as parameter.
---We need to parse the string back into our datatype to be used
+pickCard (Card f x) score (Just mem)  (Just Stock) hand --opponent choose to stock
+    --if opponet chose from stock, we know that, previous card of Discard pile is not favourable to 
+        
+    --If losing by 25, launch offensive strategy in hope of winning back.
+    | uncurry (-) score> -25 && offensiveStratforPicking (Card f x) hand =(Discard,memorytoString(updateMemory (compileStringintoMemory mem) "" ""))
+    
+    --Else try for general strategy, if succeeds, take from discard pile
+    |drawFromDiscardGeneralStrat (Card f x) hand (Just mem) = (Discard,memorytoString(updateMemory(compileStringintoMemory mem)"" ""))
 
--- | This card is called at the beginning of your turn, you need to decide which
--- pile to draw from.
+    --else choose from stock
+    |otherwise=(Stock,memorytoString(updateMemory(compileStringintoMemory mem)"" (show (Card f x))))
 
--- type ActionFunc
---   = Card            -- ^ card on top of the discard pile
---   -> (Score, Score) -- ^ scores of (player, opponent) as of last round
---   -> Maybe String
---   -- ^ player's memory, on first player turn in the first round it will be Nothing
---   -> Maybe Draw -- ^ opponent's chosen action, on first game turn it will be Nothing
---   -> [Card]     -- ^ the player's hand
---   -> (Draw, String) -- ^ which pile did the player chose to draw from
 
---TODO: Parse String to PlayerMemory vice versa so pickCard function can be complete
--- pickCard :: ActionFunc
--- pickCard (Card f x) score Nothing Nothing hand --base case when at start of the game
---     | uncurry (-) score> -25 && offensiveStratforPicking (Card f x) hand =(Discard,"()")
---     |sameAny rankofcard (Card f x) hand || ranksInBetweenSameSuitPresent hand (Card f x) =(Discard,"()")
---     |otherwise=(Stock,"()")
+pickCard (Card f x) score (Just mem) (Just Discard) hand--opponent choose to discard
+    -- if opponent choose to discard, we should prevent any more same rank or ranks(same suit) around being taken in the pile.
 
--- pickCard (Card f x) score (Just mem)  (Just Stock) hand --opponent choose to stock
---     --if opponet chose from stock, we know that, previous card of Discard pile is not favourable to opponent
---     --TODO: parse string to player memory type
---     | uncurry (-) score> -25 && offensiveStratforPicking (Card f x) hand =(Discard,"()")
---     |drawFromDiscardGeneralStrat (Card f x) hand (Just mem) = (Discard,"()")
---     |otherwise=(Stock,"()")
--- pickCard (Card f x) score (Just mem) (Just Discard) hand--opponent choose to discard
---     -- if opponent choose to discard, we should prevent any more same rank or ranks(same suit) around being taken in the pile.
---     | uncurry (-) score> -25 && offensiveStratforPicking (Card f x) hand =(Discard,"()")
---     | drawFromDiscardGeneralStrat (Card f x) hand (Just mem) || ranksInBetweenSameSuitPresent hand (Card f x) =(Discard,"()")
---     | otherwise=(Stock,"()")
--- pickCard (Card _ _)_  _ _ _=undefined
+    --If losing by 25, ignore memory and use offensive strategy
+    | uncurry (-) score> -25 && offensiveStratforPicking (Card f x) hand =(Discard,memorytoString(updateMemory (compileStringintoMemory mem) "" ""))
+
+    --check if player can follow general strategy and check if ranks between same suit present. either true, then discard
+    | drawFromDiscardGeneralStrat (Card f x) hand (Just mem) || ranksInBetweenSameSuitPresent hand (Card f x) =
+        (Discard,memorytoString(updateMemory(compileStringintoMemory mem)"" ""))
+
+    --else stock
+    | otherwise=(Stock,memorytoString(updateMemory(compileStringintoMemory mem)"" (show (Card f x))))
+
+    
+--Only 3 possible conditions in game, so make this pattern matching undefined
+pickCard (Card _ _)_  _ _ _=undefined
+
 
 offensiveStratforPicking :: Card -> [Card] -> Bool
 offensiveStratforPicking (Card s r) hand 
@@ -145,13 +164,13 @@ ranksInBetweenSameSuitPresent  hand (Card f x)
     |not (null (filterRankLess (filterSameSuit hand f) x)) && not (null (filterRankMore (filterSameSuit hand f) x))=True
     |otherwise=False
 
--- drawFromDiscardGeneralStrat ::Card -> [Card] -> Maybe PlayerMemory -> Bool
--- drawFromDiscardGeneralStrat (Card x y) playerhand (Just playermemory)
---     | not(null(filterSameRank (getDiscardPilefromMemory (Just playermemory)) y))=True
---     | length (filterSameRank playerhand y)==2 = True --If player at hand can form a possible run, discard
---     | length (filterSameRank (getOpponentHandfromMemory (Just playermemory)) y)>1=True --if opponent can form a run at the discard pile, take it
---     | otherwise = False
--- drawFromDiscardGeneralStrat (Card x y) playerhand Nothing=False
+drawFromDiscardGeneralStrat ::Card -> [Card] -> Maybe String -> Bool
+drawFromDiscardGeneralStrat (Card x y) playerhand (Just playermemory)
+    | countnumberofRanks(getDiscardPile playermemory)(show y)>0=True
+    | length (filterSameRank playerhand y)==2 = True --If player at hand can form a possible run, discard
+    | countnumberofRanks (getOpponentPile playermemory) (show y)>1=True --if opponent can form a run at the discard pile, take it
+    | otherwise = False
+drawFromDiscardGeneralStrat (Card x y) playerhand Nothing=False
 
 
 filterSameSuit :: [Card] -> Suit -> [Card]
@@ -169,6 +188,10 @@ filterRankMore cards rank=filter isSameRank cards
 filterSameRank :: [Card] -> Rank -> [Card]
 filterSameRank cards rank = filter isSameRank cards
     where isSameRank (Card _ r)=if r==rank then True else False
+
+
+countnumberofRanks :: String ->String-> Int
+countnumberofRanks x y=length (filter (== y) (words x))
 
 sameAny :: Eq b => (t -> b) -> t -> [t] -> Bool
 sameAny f c xs = any (== f c) (map f xs)
