@@ -14,6 +14,9 @@ import Data.Maybe
 import Control.Applicative
 import Parser.Instances
 import GHC.Unicode
+import Data.Ord
+
+
 
 instance Show Card where
     show (Card Heart a)="Card Heart "++ show a
@@ -42,9 +45,20 @@ instance Show Rank where
     show Queen="Queen"
     show King="King"
 
+instance Show Meld where
+    show (Deadwood x)="Deadwood"++ show x        -- An unmelded card
+    show (Set3 x y z)  ="Set3"++show x ++ show y ++ show z    -- 3 cards of same rank different suit
+    show (Set4 a b c d) ="Set 4"++ show a ++ show b ++ show c++show d-- 4 cards of same rank different suit
+    show (Straight3 a b c)="Straight 3" ++ show a ++ show b ++ show c  -- 3 cards of same suit, sequential ranks
+    show (Straight4 a b c d)="Straight 4"++show a ++ show b ++ show c++show d -- 4 cards of same suit, sequential ranks
+    show  (Straight5 a b c d e)="Straight 5"++show a ++ show b ++ show c++show d++show e -- 5 cards of same suit, sequential ranks
 
 
 data Memory=Memory{cardsPlayed::Int,opponentCard::String,discardPile::String} deriving Show
+
+--cardsPlayed= total cardsPlayed in the game already
+-- opponentCard = opponent played cards in the game (whatever new cards is on discardPile==opponenent discards)
+-- discardPile = cards in discard pile (whatever cards dumped by player or not taken is here)
 
 
 
@@ -94,6 +108,37 @@ discardPile=newdiscardpile++ discardPile memory}
 
 memorytoString :: Memory -> String
 memorytoString x=compileCardsPlayedMemorytoString x ++"|" ++compileopponentCardMemorytoString x ++"|"++ compileDiscardPiletoString x
+
+parseHeart :: Parser Suit
+parseHeart = string "Heart" >> pure Heart
+
+
+parseDiamond :: Parser Suit
+parseDiamond= string "Diamond" >> pure Diamond
+
+parseClub :: Parser Suit
+parseClub = string "Club" >> pure Club
+parseSpade:: Parser Suit
+parseSpade = string "Spade" >> pure Spade
+
+parseSuit :: Parser Suit
+parseSuit = parseDiamond ||| parseClub ||| parseSpade ||| parseHeart
+
+string :: String -> Parser String
+string = traverse is
+
+
+runParser :: ParseResult a -> Maybe a
+runParser (Result b a)=Just a
+runParser (Error _)=Nothing
+
+
+
+
+
+
+
+
 
 
 pickCard :: ActionFunc
@@ -207,12 +252,18 @@ rankofcard (Card _ r) = r
 --   -> [Card]           -- ^ the player's hand
 --   -> (Action, String) -- ^ the player's chosen card and new state
 
--- playCard :: PlayFunc
--- playCard (Card f x) score mem hand=meldCombos(listAllPossibleMelds hand (Card f x)) (selectBestPossibleMelds (listAllPossibleMelds hand (Card f x)))
---     | 
--- | This function is called at the end of the game when you need to return the
--- melds you formed with your last hand.
+playCard :: PlayFunc
+playCard (Card f x) score mem hand
+    |0 `elem` scoreofcard (delete (getRiskiestCard hand (Card f x)) hand) (Card f x)=(Action Gin (getRiskiestCard hand (Card f x)),"")
+    |uncurry (>) score=(Action Drop (chooseHighestValueCardofSameSuit hand (mostFrequentSuit$opponentCard (compileStringintoMemory mem))),"")
+playCard (Card _ _) _ _ _=undefined
 
+scoreofcard:: [Card] -> Card -> [Int]
+scoreofcard hand (Card f x)=map((sum . map toPoints) . (`calculateindscore` hand)) (selectBestPossibleMelds (listAllPossibleMelds hand (Card f x)))
+
+
+    --    |0 `elem`map (sum . map toPoints)(map(\ x -> calculateindscore x hand)(selectBestPossibleMeld (listAllPossibleMelds hand (Card f x))))=(,)
+    --    |0 `elem` (sum . map toPoints) . (`calculateindscore` hand)(selectBestPossibleMeld (listAllPossibleMelds hand (Card f x)))=(Action Gin (Card f x),"")
 -- type MeldFunc
 --   = String  -- ^ the player's memory
 --   -> [Card] -- ^ cards in player's hand
@@ -220,46 +271,17 @@ rankofcard (Card _ r) = r
 -- makeMelds :: MeldFunc
 -- makeMelds x y=[Deadwood (Card Heart Ace)]
 
+-- |0 `elem`( map sum((map.map) toPoints  (map(\x->calculateindscore x hand) (selectBestPossibleMelds(listAllPossibleMelds hand (Card f x))))))=(Action Gin (Card f x),"")
+
 
 --Defensive strategy -- don't knock, try for gin.  If opponent discard a Card- check the suit. Dont make knocks late in the game
 -- Offensive strategy, knock early, form multiple melds, only go for gin if half the deck is played, bait opponeents
 --discarding a specific card you need for the sequence, discard the same value card but another suit and they probably discard your card
 
 
-
--- checkOpponentSuits :: PlayerMemory -> [Suit]
--- checkOpponentSuits mem =getSuitfromListofCards (gOHfM  mem)
-
--- checkDiscardPileSuits :: PlayerMemory -> [Suit]
--- checkDiscardPileSuits mem= getSuitfromListofCards (gDPfM mem)
-
--- getSuitfromListofCards :: [Card] -> [Suit]
--- getSuitfromListofCards ((Card s r):xs)=s:getSuitfromListofCards xs
--- getSuitfromListofCards []=  []
-
-
-
-
--- Don't knock, try to form melds for gin, only discard opponents discarded suits/ranks, discard high value cards first
--- defensivePlay :: Card -> String -> [Card] ->Action
--- defensivePlay (Card x y) mem  hand=
---     let opp= checkOpponentSuits mem
-
--- chooseHighestValueCardfromDeck ::[Card] -> Card
--- chooseHighestValueCardfromDeck= maximum
-
-
-
-chooseHighestValueCardofSameSuit :: [Card] ->Suit ->  Card
-chooseHighestValueCardofSameSuit hand suit = maximum(filter (\(Card s r)->s==suit) hand)
-
--- data Meld =
---       Deadwood Card            -- An unmelded card
---     | Set3 Card Card Card      -- 3 cards of same rank different suit
---     | Set4 Card Card Card Card -- 4 cards of same rank different suit
---     | Straight3 Card Card Card -- 3 cards of same suit, sequential ranks
---     | Straight4 Card Card Card Card -- 4 cards of same suit, sequential ranks
---     | Straight5 Card Card Card Card Card -- 5 cards of same suit, sequential rank
+chooseHighestValueCardofSameSuit :: [Card] ->Maybe Suit ->  Card
+chooseHighestValueCardofSameSuit hand (Just suit) = maximum(filter (\(Card s r)->s==suit) hand)
+chooseHighestValueCardofSameSuit hand Nothing=maximum hand
 
 
 -- loc=[Card Heart Five, Card Heart Six,Card Diamond Four, Card Club Seven, Card Spade King,Card Spade Four,Card Club Five]
@@ -275,6 +297,13 @@ checkSetMeld :: [Card] -> Bool
 checkSetMeld (Card s r:xs) = all (\(Card x y) -> x /= s && r==y ) xs
 checkSetMeld []=False
 
+getRiskiestCard :: [Card] -> Card -> Card
+getRiskiestCard hand (Card f x)=maximum$maximumBy (comparing length) (map(`calculateindscore` hand)(selectBestPossibleMelds (listAllPossibleMelds hand (Card f x))))
+
+
+mostFrequentSuit :: String -> Maybe Suit
+mostFrequentSuit x=runParser (parse parseSuit (maximum(maximumBy (comparing length)(group.sort$words x))))
+-- maximum(maximumBy (comparing length)(group.sort$words
 
 getDeadwoods :: [Card] ->[Card] -> [Card]
 getDeadwoods meld hand = hand \\ meld
@@ -288,9 +317,35 @@ calculateDeadwoodScores hand =   sum  (map toPoints hand)
 
 --Out of all the deadwood combinations, we have to find unique deadwoods that yield the least total deadwood score
 
-selectBestPossibleMelds :: [[Card]] ->[Card]-> [Int]
-selectBestPossibleMelds (x:xs) hand=reverse $ foldr(\ p -> (:) (calculateDeadwoodScores (getDeadwoods p hand))) [calculateDeadwoodScores (getDeadwoods x hand)] xs
-selectBestPossibleMelds [] hand=[calculateDeadwoodScores(getDeadwoods hand hand)]
+-- selectBestPossibleMelds :: [[Card]] ->[Card]-> [Int]
+-- selectBestPossibleMelds (x:xs) hand=reverse $ foldr(\ p -> (:) (calculateDeadwoodScores (getDeadwoods p hand))) [calculateDeadwoodScores (getDeadwoods x hand)] xs
+-- selectBestPossibleMelds [] hand=[calculateDeadwoodScores(getDeadwoods hand hand)]
+
+-- map (\x-> calculateindscore x [Card Heart Five,Card Heart Six,Card Heart Seven,Card Diamond King]) meld)
+
+selectBestPossibleMelds :: [[Card]] -> [Meld]
+selectBestPossibleMelds lol@(x:xs)=formMelds x:selectBestPossibleMelds xs
+selectBestPossibleMelds []=[]
+
+
+scoreCards:: [Card] -> Int
+scoreCards x=sum (map toPoints x)
+
+
+
+
+calculateindscore :: Meld -> [Card] -> [Card]
+calculateindscore m@(Straight3 a b c) l@(w:wy)=if a/=w && b/=w && c/=w then w:calculateindscore m wy  else calculateindscore m wy
+calculateindscore m@(Straight4 a b c d) l@(w:wy)=if a/=w && b/=w && c/=w && d/=w then w:calculateindscore m wy   else calculateindscore m wy
+calculateindscore m@(Straight5 a b c d e) l@(w:wy)=if a/=w && b/=w && c/=w && d/=w && e/=w then w:calculateindscore m wy   else calculateindscore m wy
+calculateindscore m@(Set3 a b c) l@(w:wy)=if a/=w && b/=w && c/=w then w:calculateindscore m wy   else calculateindscore m wy
+calculateindscore m@(Set4 a b c d) l@(w:wy)=if a/=w && b/=w && c/=w && d/=w then w:calculateindscore m wy   else calculateindscore m wy
+calculateindscore (Deadwood a) x=x
+calculateindscore x []=[]
+
+
+
+
 
 listAllPossibleMelds :: [Card] ->Card-> [[Card]]
 listAllPossibleMelds hand card = filter  possibleMeld $ filter (\x->length x>=3 && length x<=5) (subsequences (sort $hand++[card]))
@@ -301,27 +356,24 @@ possibleMeld hand =checkSetMeld hand || checkStraightMeld hand
 -- qcards=[Card Heart Nine, Card Heart Ten, Card Heart King, Card Diamond Ace, Card Diamond Ten, Card Club Ten]
 
 
--- formMelds :: [Card] -> Meld
--- formMelds l@[a,b,c]= x a b c where
---     x=if checkStraightMeld l then Straight3 else Set3
--- formMelds []=undefined
--- formMelds [x]=Deadwood x
--- formMelds l@[a,b,c,d]= x a b c d where
---     x=if checkStraightMeld l then Straight4 else Set4
--- formMelds l@[a,b,c,d,e]= Straight5 a b c d e
--- formMelds l@(x:xs)=undefined
+formMelds :: [Card] -> Meld
+formMelds l@[a,b,c]= x a b c where
+    x=if checkStraightMeld l then Straight3 else Set3
+formMelds []=undefined
+formMelds [x]=Deadwood x
+formMelds l@[a,b,c,d]= x a b c d where
+    x=if checkStraightMeld l then Straight4 else Set4
+formMelds l@[a,b,c,d,e]= Straight5 a b c d e
+formMelds l@(x:xs)=undefined
+
+
+
 
 
 
 --Referenced from https://stackoverflow.com/a/47004828/
 exists :: Eq a => [a] -> [a] -> Bool
 exists x y = or $ (==) <$> x <*> y
-
-
-meldCombos :: [[Card]] -> [Int] -> [[Card]]
-meldCombos l@(x:xs) value=filter (\p->(exists p x && value!!fromJust (elemIndex p l)< value!!fromJust (elemIndex x l))||not (exists p x) ) xs
-meldCombos [] value=[]
-
 
 
 -- meld= Straight3 (Card Heart Nine) (Card Heart Ten) (Card Heart Queen)
