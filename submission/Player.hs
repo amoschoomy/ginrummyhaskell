@@ -319,11 +319,26 @@ rankofcard (Card _ r) = r
 
 playCard :: PlayFunc
 playCard (Card f x) score mem hand
-    |0 `elem` scoreofcard (delete (getRiskiestCard hand (Card f x)) hand) (Card f x)=(Action Gin (getRiskiestCard hand (Card f x)),"")
+
+    -- if losing by more than 25, and decks can form Gin and only if half the deck has been played. This is to maximise the deadwood score of opponent
+    |0 `elem` scoreofcard (delete (getRiskiestCard hand (Card f x)) hand) (Card f x) &&cardsPlayed (compileStringintoMemory mem)>26 && uncurry (-) score > -25 =(Action Gin (getRiskiestCard hand (Card f x)),"")
+    
+    --in normal circumstances, call Gin ASAP
+    |0 `elem` scoreofcard (delete (getRiskiestCard hand (Card f x)) hand) (Card f x)&& uncurry (-) score > -25=(Action Gin (getRiskiestCard hand (Card f x)),"")
+    
+    --if youre losing, call Knock ASAP
+    |canKnock hand (Card f x) && uncurry (-) score > -25=(Action Knock (getRiskiestCard hand (Card f x)),"")
+
+    --try to match cards in opponent discards, and discard the same suits of opponent discards
     |length (filterSameSuit (discardPile (compileStringintoMemory mem)) f)-length (discardPile (compileStringintoMemory mem))<0=(Action Drop (chooseHighestValueCardofSameSuit hand (Just f)),"")
-    -- |uncurry (>) score &&map(\p->handScore (delete (getRiskiestCard hand (Card f x)) hand)-p)<20 =undefined
--- |scoreofcard (delete (getRiskiestCard hand (Card f x)) hand)  (Card f x)<20=(Action Knock (getRiskiestCard hand (Card f x)),"")
-playCard (Card _ _) _ _ _=undefined
+    
+    --only knock, if less than half the deck played
+    |canKnock hand (Card f x) && cardsPlayed (compileStringintoMemory mem)<=26=(Action Drop (getRiskiestCard hand (Card f x)),"")
+    
+    --otherwise get maximum value at hand
+    |otherwise=(Action Drop (maximum hand),"")
+
+
 
 scoreofcard:: [Card] -> Card -> [Int]
 scoreofcard hand (Card f x)=map((sum . map toPoints) . (`calculateindscore` hand)) (selectBestPossibleMelds (listAllPossibleMelds hand (Card f x)))
@@ -331,6 +346,9 @@ scoreofcard hand (Card f x)=map((sum . map toPoints) . (`calculateindscore` hand
 
 handScore :: [Card] -> Int
 handScore hand=sum (map toPoints hand)
+
+canKnock :: [Card]-> Card -> Bool
+canKnock hand c@(Card f x)=length((nub.concat)$listAllPossibleMelds hand c)>=9
 
     --    |0 `elem`map (sum . map toPoints)(map(\ x -> calculateindscore x hand)(selectBestPossibleMeld (listAllPossibleMelds hand (Card f x))))=(,)
     --    |0 `elem` (sum . map toPoints) . (`calculateindscore` hand)(selectBestPossibleMeld (listAllPossibleMelds hand (Card f x)))=(Action Gin (Card f x),"")
