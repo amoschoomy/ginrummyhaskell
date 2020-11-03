@@ -92,11 +92,11 @@ discardPile=getResultsfromParser (runParser(parse parseloc(getDiscardPile(getRem
 
 getOpponentPile :: String -> String
 getOpponentPile "" =""
-getOpponentPile x =head (wordsWhen (=='|') x)
+getOpponentPile "|"=""
+getOpponentPile x =if null(wordsWhen (=='|')x)then ""else head (wordsWhen (=='|') x)
 
 getDiscardPile :: String -> String
-getDiscardPile ""=""
-getDiscardPile x=last (wordsWhen (=='|')x)
+getDiscardPile x=if null (wordsWhen (=='|')x) then "" else last (wordsWhen (=='|')x)
 
 
 
@@ -249,9 +249,28 @@ pickCard (Card f x) score (Just mem) (Just Discard) hand--opponent choose to dis
     --else stock
     | otherwise=(Stock,memorytoString(updateMemory(compileStringintoMemory mem)[] [Card f x]))
 
-    
---Only 3 possible conditions in game, so make this pattern matching undefined
-pickCard (Card _ _)_  _ _ _=undefined
+--if first turn, opponent choose discard, we have to choose discard anyway
+pickCard (Card f x) score Nothing (Just Discard) hand   --If losing by 25, launch offensive strategy
+    | uncurry (-) score> -25 && offensiveStratforPicking (Card f x) hand =(Discard,memorytoString Memory{cardsPlayed=1,opponentCard=[],discardPile=[]})
+
+    --check player hand and the card on top of discard pile
+    -- such that if there is ranksInBetweenSameSuitPresent or any same rank of cards then choose from discard pile
+    |sameAny rankofcard (Card f x) hand || ranksInBetweenSameSuitPresent hand (Card f x) =(Discard,memorytoString Memory{cardsPlayed=1,opponentCard=[],discardPile=[]})
+
+    --else, get from Stock
+    |otherwise=(Stock,memorytoString Memory{cardsPlayed=1,opponentCard=[],discardPile=[Card f x]})
+
+pickCard (Card f x) score (Just mem) Nothing hand= if drawFromDiscardGeneralStrat (Card f x) hand (Just mem) then (Discard,memorytoString(updateMemory(compileStringintoMemory mem)[] [])) else (Stock,memorytoString(updateMemory(compileStringintoMemory mem)[][Card f x]))
+pickCard (Card f x) score Nothing (Just Stock) hand
+    | uncurry (-) score> -25 && offensiveStratforPicking (Card f x) hand =(Discard,memorytoString Memory{cardsPlayed=1,opponentCard=[],discardPile=[]})
+
+    --check player hand and the card on top of discard pile
+    -- such that if there is ranksInBetweenSameSuitPresent or any same rank of cards then choose from discard pile
+    |sameAny rankofcard (Card f x) hand || ranksInBetweenSameSuitPresent hand (Card f x) =(Discard,memorytoString Memory{cardsPlayed=1,opponentCard=[],discardPile=[]})
+
+    --else, get from Stock
+    |otherwise=(Stock,memorytoString Memory{cardsPlayed=1,opponentCard=[],discardPile=[Card f x]})
+
 
 
 offensiveStratforPicking :: Card -> [Card] -> Bool
@@ -356,15 +375,10 @@ canKnock hand c@(Card f x)=length((nub.concat)$listAllPossibleMelds hand c)>=9
 --   = String  -- ^ the player's memory
 --   -> [Card] -- ^ cards in player's hand
 --   -> [Meld] -- ^ elected melds
--- makeMelds :: MeldFunc
--- makeMelds x y=[Deadwood (Card Heart Ace)]
+makeMelds :: MeldFunc
+makeMelds mem x y=[Deadwood (Card Heart Ace)]
 
 -- |0 `elem`( map sum((map.map) toPoints  (map(\x->calculateindscore x hand) (selectBestPossibleMelds(listAllPossibleMelds hand (Card f x))))))=(Action Gin (Card f x),"")
-
-
---Defensive strategy -- don't knock, try for gin.  If opponent discard a Card- check the suit. Dont make knocks late in the game
--- Offensive strategy, knock early, form multiple melds, only go for gin if half the deck is played, bait opponeents
---discarding a specific card you need for the sequence, discard the same value card but another suit and they probably discard your card
 
 
 chooseHighestValueCardofSameSuit :: [Card] ->Maybe Suit ->  Card
@@ -386,11 +400,13 @@ checkSetMeld (Card s r:xs) = all (\(Card x y) -> x /= s && r==y ) xs
 checkSetMeld []=False
 
 getRiskiestCard :: [Card] -> Card -> Card
-getRiskiestCard hand (Card f x)=maximum$maximumBy (comparing length) (map(`calculateindscore` hand)(selectBestPossibleMelds (listAllPossibleMelds hand (Card f x))))
+getRiskiestCard hand (Card f x)
+    |null (selectBestPossibleMelds (listAllPossibleMelds hand (Card f x)))=maximum hand
+    |otherwise=maximum$maximumBy (comparing length) (map(`calculateindscore` hand)(selectBestPossibleMelds (listAllPossibleMelds hand (Card f x))))
 
 
-mostFrequentSuit :: String -> Maybe Suit
-mostFrequentSuit x=runParser (parse parseSuit (maximum(maximumBy (comparing length)(group.sort$words x))))
+meldintocard::[[Card]]
+meldintocard=map(`calculateindscore` [Card Heart Ace])(selectBestPossibleMelds (listAllPossibleMelds [Card Heart Ace] (Card Diamond Ace)))
 
 
 
