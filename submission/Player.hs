@@ -15,6 +15,7 @@ import Control.Applicative
 import Parser.Instances
 import GHC.Unicode
 import Data.Ord
+import Control.Monad
 
 
 
@@ -371,18 +372,61 @@ canKnock hand c@(Card f x)=length((nub.concat)$listAllPossibleMelds hand c)>=9
 
     --    |0 `elem`map (sum . map toPoints)(map(\ x -> calculateindscore x hand)(selectBestPossibleMeld (listAllPossibleMelds hand (Card f x))))=(,)
     --    |0 `elem` (sum . map toPoints) . (`calculateindscore` hand)(selectBestPossibleMeld (listAllPossibleMelds hand (Card f x)))=(Action Gin (Card f x),"")
--- type MeldFunc
---   = String  -- ^ the player's memory
---   -> [Card] -- ^ cards in player's hand
---   -> [Meld] -- ^ elected melds
-makeMelds :: MeldFunc
-makeMelds mem x y=[Deadwood (Card Heart Ace)]
 
+    -- type MeldFunc
+    -- = (Score, Score) -- ^ scores of (player, opponent) as of last round
+    -- -> String        -- ^ the player's memory
+    -- -> [Card]        -- ^ cards in player's hand
+    -- -> [Meld]        -- ^ elected melds
+  
+
+makeMelds :: MeldFunc
+makeMelds score mem card@(x:xs)=map formMelds (filtermeld (listAllMeld card))++formDeadwood card (concat (filtermeld (listAllMeld card)))
+makeMelds score mem []=[]
+
+
+formM :: [Card] -> [Card] ->[[Card]] -> Bool
+formM handofmeld remainingdeck otherMelds
+    |all (\x->not $exists handofmeld x) otherMelds=True
+    |otherwise=False
+formDeadwood :: [Card] -> [Card] -> [Meld]
+formDeadwood x y=map Deadwood (x\\ y)
+
+
+filtermeld:: [[Card]]->[[Card]] 
+filtermeld [x,y]=if not (x `exists` y) then [x,y] else (if calculateDeadwoodScores x < calculateDeadwoodScores y then [x] else [y])
+filtermeld cards@(s:x:sx)=if not( s `exists` x) then s:filtermeld sx  else filtermeld sx
+filtermeld []=[]
+filtermeld [x]=[x]
+
+--if filter melds 
+overlappingMelds :: [Card] -> [[Card]] ->Bool
+overlappingMelds handofmeld otherMelds=any (\x->exists handofmeld x) otherMelds
+
+filterMelds :: [Card] -> [[Card]] ->[Int]
+filterMelds card melds=(map calculateDeadwoodScores (filter (\x->exists card x) melds))
+
+appendmeldvalue ::[[Card]] -> [Int] ->[([Card],Int)]
+appendmeldvalue melds@(a:ax) values@(b:bx) =(a,b):appendmeldvalue ax bx
+appendmeldvalue [] []=[]
+appendmeldvalue [] (_:_)=[]
+appendmeldvalue (_:_) []=[]
+
+getlowestmeldvalue:: [([Card],Int)]->[Card]
+getlowestmeldvalue []=[]
+getlowestmeldvalue x=fst (minimumBy (comparing snd) x)
+
+
+safetoMeld ::Meld-> [Card]->Bool
+safetoMeld x l=not$ null (calculateindscore x l)
 -- |0 `elem`( map sum((map.map) toPoints  (map(\x->calculateindscore x hand) (selectBestPossibleMelds(listAllPossibleMelds hand (Card f x))))))=(Action Gin (Card f x),"")
 
 
+--list all possibleMeld
+--for each , list of cards check if melds already formed, form a meld list, delete the cards from the deck,
+
 chooseHighestValueCardofSameSuit :: [Card] ->Maybe Suit ->  Card
-chooseHighestValueCardofSameSuit hand (Just suit) = maximum(filter (\(Card s r)->s==suit) hand)
+chooseHighestValueCardofSameSuit hand (Just suit) = if not$ null (filter (\(Card s r)->s==suit) hand) then   maximum (filter (\(Card s r)->s==suit) hand) else maximum hand
 chooseHighestValueCardofSameSuit hand Nothing=maximum hand
 
 
@@ -400,10 +444,10 @@ checkSetMeld (Card s r:xs) = all (\(Card x y) -> x /= s && r==y ) xs
 checkSetMeld []=False
 
 getRiskiestCard :: [Card] -> Card -> Card
+getRiskiestCard [] (Card f x)=Card f x
 getRiskiestCard hand (Card f x)
     |null (selectBestPossibleMelds (listAllPossibleMelds hand (Card f x)))=maximum hand
     |otherwise=maximum$maximumBy (comparing length) (map(`calculateindscore` hand)(selectBestPossibleMelds (listAllPossibleMelds hand (Card f x))))
-
 
 meldintocard::[[Card]]
 meldintocard=map(`calculateindscore` [Card Heart Ace])(selectBestPossibleMelds (listAllPossibleMelds [Card Heart Ace] (Card Diamond Ace)))
@@ -446,6 +490,11 @@ calculateindscore x []=[]
 
 listAllPossibleMelds :: [Card] ->Card-> [[Card]]
 listAllPossibleMelds hand card = filter  possibleMeld $ filter (\x->length x>=3 && length x<=5) (subsequences (sort $hand++[card]))
+
+
+listAllMeld ::[Card]->[[Card]]
+listAllMeld hand=filter  possibleMeld $ filter (\x->length x>=3 && length x<=5) (subsequences (sort $hand))
+
 
 possibleMeld :: [Card] -> Bool
 possibleMeld hand =checkSetMeld hand || checkStraightMeld hand
