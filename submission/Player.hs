@@ -479,8 +479,8 @@ calculateindscore m@(Straight4 a b c d) (w:wy)=if a/=w && b/=w && c/=w && d/=w t
 calculateindscore m@(Straight5 a b c d e) (w:wy)=if a/=w && b/=w && c/=w && d/=w && e/=w then w:calculateindscore m wy   else calculateindscore m wy
 calculateindscore m@(Set3 a b c) (w:wy)=if a/=w && b/=w && c/=w then w:calculateindscore m wy   else calculateindscore m wy
 calculateindscore m@(Set4 a b c d) (w:wy)=if a/=w && b/=w && c/=w && d/=w then w:calculateindscore m wy   else calculateindscore m wy
-calculateindscore (Deadwood a) x=x
-calculateindscore x []=[]
+calculateindscore (Deadwood _) x=x
+calculateindscore _ []=[]
 
 
 
@@ -507,8 +507,8 @@ formMelds []=undefined
 formMelds [x]=Deadwood x
 formMelds l@[a,b,c,d]= x a b c d where
     x=if checkStraightMeld l then Straight4 else Set4
-formMelds l@[a,b,c,d,e]= Straight5 a b c d e
-formMelds l@(x:xs)=undefined
+formMelds [a,b,c,d,e]= Straight5 a b c d e
+formMelds (_:_)=undefined
 
 
 
