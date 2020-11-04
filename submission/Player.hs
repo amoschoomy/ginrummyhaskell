@@ -368,7 +368,7 @@ handScore :: [Card] -> Int
 handScore hand=sum (map toPoints hand)
 
 canKnock :: [Card]-> Card -> Bool
-canKnock hand c@(Card _ _)=length((nub.concat)$listAllPossibleMelds hand c)>=9
+canKnock hand c@(Card _ _)=(calculateDeadwoodScores $ hand \\(concat$filtermeld(listAllPossibleMelds hand c)))<10
 
     --    |0 `elem`map (sum . map toPoints)(map(\ x -> calculateindscore x hand)(selectBestPossibleMeld (listAllPossibleMelds hand (Card f x))))=(,)
     --    |0 `elem` (sum . map toPoints) . (`calculateindscore` hand)(selectBestPossibleMeld (listAllPossibleMelds hand (Card f x)))=(Action Gin (Card f x),"")
