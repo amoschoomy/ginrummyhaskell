@@ -78,7 +78,7 @@ parsenumbercardsPlayed :: String ->Maybe(Int,String)
 parsenumbercardsPlayed =readInt
 
 getnumbercardsPlayed :: Maybe(Int,String)-> Int
-getnumbercardsPlayed (Just (a,b))=a
+getnumbercardsPlayed (Just (a,_))=a
 getnumbercardsPlayed Nothing=0
 
 getRemainingString :: Maybe(Int,String)->String
@@ -131,7 +131,7 @@ string = traverse is
 
 
 runParser :: ParseResult a -> Maybe a
-runParser (Result b a)=Just a
+runParser (Result _ a)=Just a
 runParser (Error _)=Nothing
 
 
@@ -261,7 +261,7 @@ pickCard (Card f x) score Nothing (Just Discard) hand   --If losing by 25, launc
     --else, get from Stock
     |otherwise=(Stock,memorytoString Memory{cardsPlayed=1,opponentCard=[],discardPile=[Card f x]})
 
-pickCard (Card f x) score (Just mem) Nothing hand= if drawFromDiscardGeneralStrat (Card f x) hand (Just mem) then (Discard,memorytoString(updateMemory(compileStringintoMemory mem)[] [])) else (Stock,memorytoString(updateMemory(compileStringintoMemory mem)[][Card f x]))
+pickCard (Card f x) _ (Just mem) Nothing hand= if drawFromDiscardGeneralStrat (Card f x) hand (Just mem) then (Discard,memorytoString(updateMemory(compileStringintoMemory mem)[] [])) else (Stock,memorytoString(updateMemory(compileStringintoMemory mem)[][Card f x]))
 pickCard (Card f x) score Nothing (Just Stock) hand
     | uncurry (-) score> -25 && offensiveStratforPicking (Card f x) hand =(Discard,memorytoString Memory{cardsPlayed=1,opponentCard=[],discardPile=[]})
 
@@ -298,12 +298,12 @@ ranksInBetweenSameSuitPresent  hand (Card f x)
     |otherwise=False
 
 drawFromDiscardGeneralStrat ::Card -> [Card] -> Maybe String -> Bool
-drawFromDiscardGeneralStrat (Card x y) playerhand (Just playermemory)
+drawFromDiscardGeneralStrat (Card _ y) playerhand (Just playermemory)
     | length (filterSameRank (discardPile (compileStringintoMemory playermemory)) y)>=2=True
     | length (filterSameRank playerhand y)==2 = True --If player at hand can form a possible run, discard
     | length (filterSameRank (opponentCard (compileStringintoMemory playermemory)) y)>=2=True--if opponent can form a run at the discard pile, take it
     | otherwise = False
-drawFromDiscardGeneralStrat (Card x y) playerhand Nothing=False
+drawFromDiscardGeneralStrat (Card _ _) _ Nothing=False
 
 
 filterSameSuit :: [Card] -> Suit -> [Card]
@@ -368,7 +368,7 @@ handScore :: [Card] -> Int
 handScore hand=sum (map toPoints hand)
 
 canKnock :: [Card]-> Card -> Bool
-canKnock hand c@(Card f x)=length((nub.concat)$listAllPossibleMelds hand c)>=9
+canKnock hand c@(Card _ _)=length((nub.concat)$listAllPossibleMelds hand c)>=9
 
     --    |0 `elem`map (sum . map toPoints)(map(\ x -> calculateindscore x hand)(selectBestPossibleMeld (listAllPossibleMelds hand (Card f x))))=(,)
     --    |0 `elem` (sum . map toPoints) . (`calculateindscore` hand)(selectBestPossibleMeld (listAllPossibleMelds hand (Card f x)))=(Action Gin (Card f x),"")
@@ -381,12 +381,10 @@ canKnock hand c@(Card f x)=length((nub.concat)$listAllPossibleMelds hand c)>=9
   
 
 makeMelds :: MeldFunc
-makeMelds score mem card@(x:xs)=map formMelds (filtermeld (listAllMeld card))++formDeadwood card (concat (filtermeld (listAllMeld card)))
-makeMelds score mem []=[]
-
+makeMelds _ _ card=map formMelds (filtermeld (listAllMeld card))++formDeadwood card (concat (filtermeld (listAllMeld card)))
 
 formM :: [Card] -> [Card] ->[[Card]] -> Bool
-formM handofmeld remainingdeck otherMelds
+formM handofmeld _ otherMelds
     |all (\x->not $exists handofmeld x) otherMelds=True
     |otherwise=False
 formDeadwood :: [Card] -> [Card] -> [Meld]
@@ -395,7 +393,7 @@ formDeadwood x y=map Deadwood (x\\ y)
 
 filtermeld:: [[Card]]->[[Card]] 
 filtermeld [x,y]=if not (x `exists` y) then [x,y] else (if calculateDeadwoodScores x < calculateDeadwoodScores y then [x] else [y])
-filtermeld cards@(s:x:sx)=if not( s `exists` x) then s:filtermeld sx  else filtermeld sx
+filtermeld (s:x:sx)=if not( s `exists` x) then s:filtermeld sx  else filtermeld sx
 filtermeld []=[]
 filtermeld [x]=[x]
 
@@ -407,7 +405,7 @@ filterMelds :: [Card] -> [[Card]] ->[Int]
 filterMelds card melds=(map calculateDeadwoodScores (filter (\x->exists card x) melds))
 
 appendmeldvalue ::[[Card]] -> [Int] ->[([Card],Int)]
-appendmeldvalue melds@(a:ax) values@(b:bx) =(a,b):appendmeldvalue ax bx
+appendmeldvalue (a:ax) (b:bx) =(a,b):appendmeldvalue ax bx
 appendmeldvalue [] []=[]
 appendmeldvalue [] (_:_)=[]
 appendmeldvalue (_:_) []=[]
@@ -426,7 +424,7 @@ safetoMeld x l=not$ null (calculateindscore x l)
 --for each , list of cards check if melds already formed, form a meld list, delete the cards from the deck,
 
 chooseHighestValueCardofSameSuit :: [Card] ->Maybe Suit ->  Card
-chooseHighestValueCardofSameSuit hand (Just suit) = if not$ null (filter (\(Card s r)->s==suit) hand) then   maximum (filter (\(Card s r)->s==suit) hand) else maximum hand
+chooseHighestValueCardofSameSuit hand (Just suit) = if not$ null (filter (\(Card s _)->s==suit) hand) then   maximum (filter (\(Card s _)->s==suit) hand) else maximum hand
 chooseHighestValueCardofSameSuit hand Nothing=maximum hand
 
 
@@ -436,7 +434,7 @@ cardToPoints :: Card->Int
 cardToPoints (Card _ rank) = fromEnum rank + 1
 
 checkStraightMeld :: [Card] ->Bool
-checkStraightMeld list@(Card s r:xs)= cardToPoints (last list)-cardToPoints (head list) == (length list - 1)&& all(\(Card x y)-> x==s) xs
+checkStraightMeld l@(Card s _:xs)= cardToPoints (last l)-cardToPoints (head l) == (length l - 1)&& all(\(Card x _)-> x==s) xs
 checkStraightMeld []=False
 
 checkSetMeld :: [Card] -> Bool
@@ -465,7 +463,7 @@ calculateDeadwoodScores hand =   sum  (map toPoints hand)
 
 
 selectBestPossibleMelds :: [[Card]] -> [Meld]
-selectBestPossibleMelds lol@(x:xs)=formMelds x:selectBestPossibleMelds xs
+selectBestPossibleMelds (x:xs)=formMelds x:selectBestPossibleMelds xs
 selectBestPossibleMelds []=[]
 
 
@@ -476,11 +474,11 @@ scoreCards x=sum (map toPoints x)
 
 
 calculateindscore :: Meld -> [Card] -> [Card]
-calculateindscore m@(Straight3 a b c) l@(w:wy)=if a/=w && b/=w && c/=w then w:calculateindscore m wy  else calculateindscore m wy
-calculateindscore m@(Straight4 a b c d) l@(w:wy)=if a/=w && b/=w && c/=w && d/=w then w:calculateindscore m wy   else calculateindscore m wy
-calculateindscore m@(Straight5 a b c d e) l@(w:wy)=if a/=w && b/=w && c/=w && d/=w && e/=w then w:calculateindscore m wy   else calculateindscore m wy
-calculateindscore m@(Set3 a b c) l@(w:wy)=if a/=w && b/=w && c/=w then w:calculateindscore m wy   else calculateindscore m wy
-calculateindscore m@(Set4 a b c d) l@(w:wy)=if a/=w && b/=w && c/=w && d/=w then w:calculateindscore m wy   else calculateindscore m wy
+calculateindscore m@(Straight3 a b c) (w:wy)=if a/=w && b/=w && c/=w then w:calculateindscore m wy  else calculateindscore m wy
+calculateindscore m@(Straight4 a b c d) (w:wy)=if a/=w && b/=w && c/=w && d/=w then w:calculateindscore m wy   else calculateindscore m wy
+calculateindscore m@(Straight5 a b c d e) (w:wy)=if a/=w && b/=w && c/=w && d/=w && e/=w then w:calculateindscore m wy   else calculateindscore m wy
+calculateindscore m@(Set3 a b c) (w:wy)=if a/=w && b/=w && c/=w then w:calculateindscore m wy   else calculateindscore m wy
+calculateindscore m@(Set4 a b c d) (w:wy)=if a/=w && b/=w && c/=w && d/=w then w:calculateindscore m wy   else calculateindscore m wy
 calculateindscore (Deadwood a) x=x
 calculateindscore x []=[]
 
