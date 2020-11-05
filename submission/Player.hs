@@ -11,6 +11,7 @@ import Prelude
 import Rummy.Rules
 import Data.List
 import Data.Maybe
+import Data.Function
 import Control.Applicative
 import Parser.Instances
 import Data.Ord
@@ -408,30 +409,28 @@ rankofcard :: Card -> Rank
 rankofcard (Card _ r) = r
 
 
--- type PlayFunc
---   = Card              -- ^ picked card
---   -> (Score, Score)   -- ^ scores of (player, opponent) as of last round
---   -> String           -- ^ the player's memory
---   -> [Card]           -- ^ the player's hand
---   -> (Action, String) -- ^ the player's chosen card and new state
+getMostFrequentSuit :: [Card]->Maybe Card
+getMostFrequentSuit []=Nothing
+getMostFrequentSuit deck =Just$(last $ maximumBy (comparing length) $ group $ sort deck)
+
 
 playCard :: PlayFunc
 playCard (Card f x) score mem hand
 
     -- if losing by more than 25, and decks can form Gin and only if half the deck has been played. This is to maximise the deadwood score of opponent
-    |canGin (delete (getRiskiestCard hand (Card f x)) hand) (Card f x) (cardsPlayed (compileStringintoMemory mem))  &&cardsPlayed (compileStringintoMemory mem)>26 && uncurry (-) score > -25 =(Action Gin (getRiskiestCard hand (Card f x)),"0||")
+    |canGin (delete(getRiskiestCard hand (Card f x) (getMostFrequentSuit (opponentCard (compileStringintoMemory mem)))) hand)(Card f x)(cardsPlayed (compileStringintoMemory mem))  &&cardsPlayed (compileStringintoMemory mem)>26 && uncurry (-) score > -25 =(Action Gin (getRiskiestCard hand (Card f x) (getMostFrequentSuit (opponentCard (compileStringintoMemory mem)))),"0||")
     
     --in normal circumstances, call Gin ASAP
-    |canGin (delete (getRiskiestCard hand (Card f x)) hand) (Card f x)(cardsPlayed (compileStringintoMemory mem))&& uncurry (-) score > -25=(Action Gin (getRiskiestCard hand (Card f x)),"0||")
+    |canGin (delete(getRiskiestCard hand (Card f x) (getMostFrequentSuit (opponentCard (compileStringintoMemory mem)))) hand) (Card f x)(cardsPlayed (compileStringintoMemory mem))&& uncurry (-) score > -25=(Action Gin (getRiskiestCard hand (Card f x) (getMostFrequentSuit (opponentCard (compileStringintoMemory mem)))),"0||")
     
     --if youre losing, call Knock ASAP
-    |canKnock (delete (getRiskiestCard hand (Card f x))hand) (Card f x)(cardsPlayed (compileStringintoMemory mem)) && uncurry (-) score > -25=(Action Knock (getRiskiestCard hand (Card f x)),"0||")
+    |canKnock (delete(getRiskiestCard hand (Card f x) (getMostFrequentSuit (opponentCard (compileStringintoMemory mem)))) hand) (Card f x)(cardsPlayed (compileStringintoMemory mem)) && uncurry (-) score > -25=(Action Knock (getRiskiestCard hand (Card f x) (getMostFrequentSuit (opponentCard (compileStringintoMemory mem)))),"0||")
 
     --try to match cards in opponent discards, and discard the same suits of opponent discards
     |length (filterSameSuit (discardPile (compileStringintoMemory mem)) f)-length (discardPile (compileStringintoMemory mem))<0=(Action Drop (chooseHighestValueCardofSameSuit hand (Just f)),"")
     
     --only knock, if less than half the deck played
-    |canKnock(delete (getRiskiestCard hand (Card f x))hand) (Card f x)(cardsPlayed (compileStringintoMemory mem)) && cardsPlayed (compileStringintoMemory mem)<=26 && score/=(0,0)=(Action Knock (getRiskiestCard hand (Card f x)),"0||")
+    |canKnock(delete(getRiskiestCard hand (Card f x) (getMostFrequentSuit (opponentCard (compileStringintoMemory mem)))) hand) (Card f x)(cardsPlayed (compileStringintoMemory mem)) && cardsPlayed (compileStringintoMemory mem)<=26 && score/=(0,0)=(Action Knock (getRiskiestCard hand (Card f x) (getMostFrequentSuit (opponentCard (compileStringintoMemory mem)))),"0||")
     
     --otherwise get maximum value at hand
     |otherwise=(Action Drop (maximum hand),"")
@@ -486,12 +485,21 @@ checkSetMeld :: [Card] -> Bool
 checkSetMeld (Card s r:xs) = all (\(Card x y) -> x /= s && r==y ) xs
 checkSetMeld []=False
 
-getRiskiestCard :: [Card] -> Card -> Card
-getRiskiestCard [] (Card f x)=Card f x
-getRiskiestCard hand (Card f x)
+getRiskiestCard :: [Card] -> Card ->Maybe Card -> Card
+getRiskiestCard [] (Card f x) (Just(Card _ _))=Card f x
+getRiskiestCard hand (Card f x) (Just(Card g y))
+    |null (selectBestPossibleMelds (listAllPossibleMelds hand (Card f x)))&& getSuit (maximum hand) /=g=maximum hand
+    |null (selectBestPossibleMelds (listAllPossibleMelds hand (Card f x)))&& getSuit (maximum hand) ==g && not (null $filterSameSuit hand f)=maximum$ filterSameSuit hand f
+    |null (selectBestPossibleMelds (listAllPossibleMelds hand (Card f x)))&& getSuit (maximum hand) ==g && not (null $filterSameSuit hand f)=if toPoints (maximum hand)-toPoints (Card g y)<3 then minimum hand else maximum hand 
+    |not$ null (selectBestPossibleMelds (listAllPossibleMelds hand (Card f x)))=maximum$maximumBy (comparing length) (map(`getDeadwoods` hand)(selectBestPossibleMelds (listAllPossibleMelds hand (Card f x))))
+    |otherwise=maximum hand
+getRiskiestCard [] (Card f x) Nothing=Card f x
+getRiskiestCard hand (Card f x) Nothing
     |null (selectBestPossibleMelds (listAllPossibleMelds hand (Card f x)))=maximum hand
     |otherwise=maximum$maximumBy (comparing length) (map(`getDeadwoods` hand)(selectBestPossibleMelds (listAllPossibleMelds hand (Card f x))))
-
+    
+getSuit :: Card -> Suit
+getSuit (Card f _)=f
 
 calculateDeadwoodScores :: [Card] ->Int
 calculateDeadwoodScores hand =   sum  (map toPoints hand)
