@@ -342,10 +342,10 @@ playCard :: PlayFunc
 playCard (Card f x) score mem hand
 
     -- if losing by more than 25, and decks can form Gin and only if half the deck has been played. This is to maximise the deadwood score of opponent
-    |0 `elem` scoreofcard (delete (getRiskiestCard hand (Card f x)) hand) (Card f x) &&cardsPlayed (compileStringintoMemory mem)>26 && uncurry (-) score > -25 =(Action Gin (getRiskiestCard hand (Card f x)),"")
+    |canGin (delete (getRiskiestCard hand (Card f x)) hand) (Card f x) &&cardsPlayed (compileStringintoMemory mem)>26 && uncurry (-) score > -25 =(Action Gin (getRiskiestCard hand (Card f x)),"")
     
     --in normal circumstances, call Gin ASAP
-    |0 `elem` scoreofcard (delete (getRiskiestCard hand (Card f x)) hand) (Card f x)&& uncurry (-) score > -25=(Action Gin (getRiskiestCard hand (Card f x)),"")
+    |canGin (delete (getRiskiestCard hand (Card f x)) hand) (Card f x)&& uncurry (-) score > -25=(Action Gin (getRiskiestCard hand (Card f x)),"")
     
     --if youre losing, call Knock ASAP
     |canKnock (delete (getRiskiestCard hand (Card f x))hand) (Card f x) && uncurry (-) score > -25=(Action Knock (getRiskiestCard hand (Card f x)),"")
@@ -354,7 +354,7 @@ playCard (Card f x) score mem hand
     |length (filterSameSuit (discardPile (compileStringintoMemory mem)) f)-length (discardPile (compileStringintoMemory mem))<0=(Action Drop (chooseHighestValueCardofSameSuit hand (Just f)),"")
     
     --only knock, if less than half the deck played
-    |canKnock(delete (getRiskiestCard hand (Card f x))hand) (Card f x) && cardsPlayed (compileStringintoMemory mem)<=26=(Action Knock (getRiskiestCard hand (Card f x)),"")
+    |canKnock(delete (getRiskiestCard hand (Card f x))hand) (Card f x) && cardsPlayed (compileStringintoMemory mem)<=26 && score/=(0,0)=(Action Knock (getRiskiestCard hand (Card f x)),"")
     
     --otherwise get maximum value at hand
     |otherwise=(Action Drop (maximum hand),"")
@@ -371,6 +371,8 @@ handScore hand=sum (map toPoints hand)
 canKnock :: [Card]-> Card -> Bool
 canKnock hand c@(Card _ _)=(calculateDeadwoodScores $ (hand++[c]) \\(concat$filtermeld(listAllPossibleMelds hand c)))<10
 
+canGin :: [Card]-> Card -> Bool
+canGin hand c@(Card _ _)=(calculateDeadwoodScores $ (hand++[c]) \\(concat$filtermeld(listAllPossibleMelds hand c)))==0
 
 
     --    |0 `elem`map (sum . map toPoints)(map(\ x -> calculateindscore x hand)(selectBestPossibleMeld (listAllPossibleMelds hand (Card f x))))=(,)
