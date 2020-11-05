@@ -241,77 +241,120 @@ discardPiletoString x=concatMap show (discardPile x)
 
 ------------------------------------------------------------------------------------------------------------------
 
+
 pickCard :: ActionFunc
-pickCard (Card f x) score Nothing Nothing hand --base case when at start of the game
+pickCard (Card f x) score Nothing Nothing hand --base case when at start of the game and start of round
 
     --If losing by 25, launch offensive strategy
-    | uncurry (-) score> -25 && offensiveStratforPicking (Card f x) hand =(Discard,memorytoString Memory{cardsPlayed=1,opponentCard=[],discardPile=[]})
+    --NOTE: Don't think this will be executed at all since memory is only Nothing at the firs turn of each round 
+    | uncurry (-) score> -25 && offensiveStratforPicking (Card f x) hand =(Discard,memorytoString
+     Memory{cardsPlayed=1,opponentCard=[],discardPile=[]})
 
     --check player hand and the card on top of discard pile
     -- such that if there is ranksInBetweenSameSuitPresent or any same rank of cards then choose from discard pile
-    |sameAny rankofcard (Card f x) hand || ranksInBetweenSameSuitPresent hand (Card f x) =(Discard,memorytoString Memory{cardsPlayed=1,opponentCard=[],discardPile=[]})
+    -- rank of cards picked also must be less than 5, to reduce odds of high values deadwoods
+    |sameAny rankofcard (Card f x) hand && x<=Five || ranksInBetweenSameSuitPresent hand (Card f x) =
+        (Discard,memorytoString Memory{cardsPlayed=1,opponentCard=[],discardPile=[]})
     
     --else, get from Stock
     |otherwise=(Stock,memorytoString Memory{cardsPlayed=1,opponentCard=[],discardPile=[Card f x]})
 
 
-pickCard (Card f x) score (Just mem)  (Just Stock) hand --opponent choose to stock
-    --if opponet chose from stock, we know that, previous card of Discard pile is not favourable to 
+pickCard (Card f x) score (Just mem)  (Just Stock) hand --opponent choose to stock, other than first round
+    --if opponent chose from stock, we know that, previous card of Discard pile is not favourable to 
         
     --If losing by 25, launch offensive strategy in hope of winning back.
-    | uncurry (-) score> -25 && offensiveStratforPicking (Card f x) hand =(Discard,memorytoString(updateMemory (compileStringintoMemory mem) [] []))
+    | uncurry (-) score> -25 && offensiveStratforPicking (Card f x) hand =
+        (Discard,memorytoString(updateMemory (compileStringintoMemory mem) [] []))
     
     --Else try for general strategy, if succeeds, take from discard pile
-    |drawFromDiscardGeneralStrat (Card f x) hand (Just mem) = (Discard,memorytoString(updateMemory(compileStringintoMemory mem)[] []))
+    |drawFromDiscardGeneralStrat (Card f x) hand (Just mem) = 
+        (Discard,memorytoString(updateMemory(compileStringintoMemory mem)[] []))
 
     --else choose from stock
     |otherwise=(Stock,memorytoString(updateMemory(compileStringintoMemory mem)[] [Card f x]))
 
 
 pickCard (Card f x) score (Just mem) (Just Discard) hand--opponent choose to discard
-    -- if opponent choose to discard, we should prevent any more same rank or ranks(same suit) around being taken in the pile.
+    -- if opponent choose to discard
+    -- we should prevent any more same rank or ranks(same suit) around being taken in the pile.
+
+    --by checking top of discard pile, if same rank or ranks between the same suit,store it into opponentCard, take it
 
     --If losing by 25, ignore memory and use offensive strategy
-    | uncurry (-) score> -25 && offensiveStratforPicking (Card f x) hand =(Discard,memorytoString(updateMemory (compileStringintoMemory mem) [] []))
+    | uncurry (-) score> -25 && offensiveStratforPicking (Card f x) hand =
+        (Discard,memorytoString(updateMemory (compileStringintoMemory mem) 
+        (getLastCardofDiscardPilefromMemory (compileStringintoMemory mem)) []))
 
     --check if player can follow general strategy and check if ranks between same suit present. either true, then discard
-    | drawFromDiscardGeneralStrat (Card f x) hand (Just mem) || ranksInBetweenSameSuitPresent hand (Card f x) =
-        (Discard,memorytoString(updateMemory(compileStringintoMemory mem)[] []))
+    | drawFromDiscardGeneralStrat (Card f x) hand (Just mem) || ranksInBetweenSameSuitPresent hand (Card f x) ||
+     checkOpponentCardandDiscard hand (Card f x) =
+        (Discard,memorytoString(updateMemory(compileStringintoMemory mem)
+        (getLastCardofDiscardPilefromMemory (compileStringintoMemory mem)) []))
 
     --else stock
-    | otherwise=(Stock,memorytoString(updateMemory(compileStringintoMemory mem)[] [Card f x]))
+    | otherwise=(Stock,memorytoString(updateMemory(compileStringintoMemory mem)
+    (getLastCardofDiscardPilefromMemory (compileStringintoMemory mem)) [Card f x]))
 
---if first turn, opponent choose discard, we have to choose discard anyway
+
+-- First turn,second player
 pickCard (Card f x) score Nothing (Just Discard) hand   --If losing by 25, launch offensive strategy
     | uncurry (-) score> -25 && offensiveStratforPicking (Card f x) hand =(Discard,memorytoString Memory{cardsPlayed=1,opponentCard=[],discardPile=[]})
 
     --check player hand and the card on top of discard pile
     -- such that if there is ranksInBetweenSameSuitPresent or any same rank of cards then choose from discard pile
-    |sameAny rankofcard (Card f x) hand || ranksInBetweenSameSuitPresent hand (Card f x) =(Discard,memorytoString Memory{cardsPlayed=1,opponentCard=[],discardPile=[]})
+    |sameAny rankofcard (Card f x) hand || ranksInBetweenSameSuitPresent hand (Card f x) =
+        (Discard,memorytoString Memory{cardsPlayed=1,opponentCard=[],discardPile=[]})
 
     --else, get from Stock
     |otherwise=(Stock,memorytoString Memory{cardsPlayed=1,opponentCard=[],discardPile=[Card f x]})
 
-pickCard (Card f x) _ (Just mem) Nothing hand= if drawFromDiscardGeneralStrat (Card f x) hand (Just mem) then (Discard,memorytoString(updateMemory(compileStringintoMemory mem)[] [])) else (Stock,memorytoString(updateMemory(compileStringintoMemory mem)[][Card f x]))
+pickCard (Card f x) score (Just _) Nothing hand
+  --If losing by 25, launch offensive strategy
+    --NOTE: Don't think this will be executed at all since memory is only Nothing at the firs turn of each round 
+    | uncurry (-) score> -25 && offensiveStratforPicking (Card f x) hand =(Discard,memorytoString
+     Memory{cardsPlayed=1,opponentCard=[],discardPile=[]})
+
+    --check player hand and the card on top of discard pile
+    -- such that if there is ranksInBetweenSameSuitPresent or any same rank of cards then choose from discard pile
+    -- rank of cards picked also must be less than 5, to reduce odds of high values deadwoods
+    |sameAny rankofcard (Card f x) hand && x<=Five || ranksInBetweenSameSuitPresent hand (Card f x) =
+        (Discard,memorytoString Memory{cardsPlayed=1,opponentCard=[],discardPile=[]})
+    
+    --else, get from Stock
+    |otherwise=(Stock,memorytoString Memory{cardsPlayed=1,opponentCard=[],discardPile=[Card f x]})
+
 pickCard (Card f x) score Nothing (Just Stock) hand
     | uncurry (-) score> -25 && offensiveStratforPicking (Card f x) hand =(Discard,memorytoString Memory{cardsPlayed=1,opponentCard=[],discardPile=[]})
 
     --check player hand and the card on top of discard pile
     -- such that if there is ranksInBetweenSameSuitPresent or any same rank of cards then choose from discard pile
-    |sameAny rankofcard (Card f x) hand || ranksInBetweenSameSuitPresent hand (Card f x) =(Discard,memorytoString Memory{cardsPlayed=1,opponentCard=[],discardPile=[]})
+    |sameAny rankofcard (Card f x) hand || ranksInBetweenSameSuitPresent hand (Card f x) =
+        (Discard,memorytoString Memory{cardsPlayed=1,opponentCard=[],discardPile=[]})
 
     --else, get from Stock
     |otherwise=(Stock,memorytoString Memory{cardsPlayed=1,opponentCard=[],discardPile=[Card f x]})
 
+getLastCardofDiscardPilefromMemory :: Memory -> [Card]
+getLastCardofDiscardPilefromMemory mem
+    |null (discardPile mem)=[]
+    |otherwise= [last (discardPile mem)]
 
 
+checkOpponentCardandDiscard :: [Card]->Card->Bool
+checkOpponentCardandDiscard [] _=False
+checkOpponentCardandDiscard opp (Card a b)= not (null$ filterSameRank opp b) 
+    || ranksInBetweenSameSuitPresent opp (Card a b)
+
+-- | Offensive strategy for picking, ignores memory in hope of winning
 offensiveStratforPicking :: Card -> [Card] -> Bool
 offensiveStratforPicking (Card s r) hand 
     | r==Seven=True --Take Seven at all costs
 
     --https://www.gamecolony.com/gin_rummy_hands.shtml strategy taken from
     | length (filter(\x->x==Card Spade Five ||x==Card Heart Five ||x==Card Spade Six || x==Card Heart Six) hand)>1 &&
-    Card s r==Card Spade Five ||Card s r==Card Heart Five ||Card s r==Card Spade Six || Card s r==Card Heart Six=True
+    Card s r==Card Spade Five ||Card s r==Card Heart Five ||Card s r==Card Spade Six 
+    || Card s r==Card Heart Six=True
 
     | length(filter(\x->x==Card Spade Ten ||x==Card Spade Jack||x==Card Heart Jack) hand )>1 && 
     Card s r==Card Spade Ten ||Card s r==Card Spade Jack||Card s r==Card Heart Jack =True
@@ -325,7 +368,7 @@ offensiveStratforPicking (Card s r) hand
 
 ranksInBetweenSameSuitPresent :: [Card] -> Card -> Bool
 ranksInBetweenSameSuitPresent  hand (Card f x)
-    |not (null (filterRankLess (filterSameSuit hand f) x)) && not (null (filterRankMore (filterSameSuit hand f) x))=True
+    |not (null (filterRankLessThanOne (filterSameSuit hand f) x)) && not (null (filterRankMoreThanOne (filterSameSuit hand f) x))=True
     |otherwise=False
 
 drawFromDiscardGeneralStrat ::Card -> [Card] -> Maybe String -> Bool
@@ -341,21 +384,25 @@ filterSameSuit :: [Card] -> Suit -> [Card]
 filterSameSuit cards suit=filter isSameSuit cards
     where isSameSuit (Card s _)= s==suit
 
-filterRankLess :: [Card] -> Rank -> [Card]
-filterRankLess cards rank=filter isSameRank cards
-    where isSameRank (Card _ r)=r<rank
+filterRankLessThanOne :: [Card] -> Rank -> [Card]
+filterRankLessThanOne cards rank=filter lessrank cards
+    where lessrank (Card _ r)=ranktoPoints r-ranktoPoints rank == -1
 
-filterRankMore :: [Card] -> Rank -> [Card]
-filterRankMore cards rank=filter isSameRank cards
-    where isSameRank (Card _ r)=if r>rank then True else False
+filterRankMoreThanOne :: [Card] -> Rank -> [Card]
+filterRankMoreThanOne cards rank=filter morerank cards
+    where morerank (Card _ r)=ranktoPoints r-ranktoPoints rank==1
+
+
+ranktoPoints :: Rank -> Int
+ranktoPoints r =fromEnum r +1
 
 filterSameRank :: [Card] -> Rank -> [Card]
 filterSameRank cards rank = filter isSameRank cards
-    where isSameRank (Card _ r)= (==rank)
+    where isSameRank (Card _ r)= r==rank
 
 
 sameAny :: Eq b => (t -> b) -> t -> [t] -> Bool
-sameAny f c xs = any (== f c) (map f xs)
+sameAny f c =any ((== f c) . f)
 
 rankofcard :: Card -> Rank
 rankofcard (Card _ r) = r
@@ -372,29 +419,29 @@ playCard :: PlayFunc
 playCard (Card f x) score mem hand
 
     -- if losing by more than 25, and decks can form Gin and only if half the deck has been played. This is to maximise the deadwood score of opponent
-    |canGin (delete (getRiskiestCard hand (Card f x)) hand) (Card f x) &&cardsPlayed (compileStringintoMemory mem)>26 && uncurry (-) score > -25 =(Action Gin (getRiskiestCard hand (Card f x)),"")
+    |canGin (delete (getRiskiestCard hand (Card f x)) hand) (Card f x) (cardsPlayed (compileStringintoMemory mem))  &&cardsPlayed (compileStringintoMemory mem)>26 && uncurry (-) score > -25 =(Action Gin (getRiskiestCard hand (Card f x)),"0||")
     
     --in normal circumstances, call Gin ASAP
-    |canGin (delete (getRiskiestCard hand (Card f x)) hand) (Card f x)&& uncurry (-) score > -25=(Action Gin (getRiskiestCard hand (Card f x)),"")
+    |canGin (delete (getRiskiestCard hand (Card f x)) hand) (Card f x)(cardsPlayed (compileStringintoMemory mem))&& uncurry (-) score > -25=(Action Gin (getRiskiestCard hand (Card f x)),"0||")
     
     --if youre losing, call Knock ASAP
-    |canKnock (delete (getRiskiestCard hand (Card f x))hand) (Card f x) && uncurry (-) score > -25=(Action Knock (getRiskiestCard hand (Card f x)),"")
+    |canKnock (delete (getRiskiestCard hand (Card f x))hand) (Card f x)(cardsPlayed (compileStringintoMemory mem)) && uncurry (-) score > -25=(Action Knock (getRiskiestCard hand (Card f x)),"0||")
 
     --try to match cards in opponent discards, and discard the same suits of opponent discards
     |length (filterSameSuit (discardPile (compileStringintoMemory mem)) f)-length (discardPile (compileStringintoMemory mem))<0=(Action Drop (chooseHighestValueCardofSameSuit hand (Just f)),"")
     
     --only knock, if less than half the deck played
-    |canKnock(delete (getRiskiestCard hand (Card f x))hand) (Card f x) && cardsPlayed (compileStringintoMemory mem)<=26 && score/=(0,0)=(Action Knock (getRiskiestCard hand (Card f x)),"")
+    |canKnock(delete (getRiskiestCard hand (Card f x))hand) (Card f x)(cardsPlayed (compileStringintoMemory mem)) && cardsPlayed (compileStringintoMemory mem)<=26 && score/=(0,0)=(Action Knock (getRiskiestCard hand (Card f x)),"0||")
     
     --otherwise get maximum value at hand
     |otherwise=(Action Drop (maximum hand),"")
 
 
-canKnock :: [Card]-> Card -> Bool
-canKnock hand c@(Card _ _)=(calculateDeadwoodScores $ (hand++[c]) \\(concat$filtermeld(listAllPossibleMelds hand c)))<10
+canKnock :: [Card]-> Card ->Int-> Bool
+canKnock hand c@(Card _ _) a=(calculateDeadwoodScores $ (hand++[c]) \\(concat$filtermeld(listAllPossibleMelds hand c)))<10 && a>1
 
-canGin :: [Card]-> Card -> Bool
-canGin hand c@(Card _ _)=(calculateDeadwoodScores $ (hand++[c]) \\(concat$filtermeld(listAllPossibleMelds hand c)))==0
+canGin :: [Card]-> Card ->Int-> Bool
+canGin hand c@(Card _ _) a=(calculateDeadwoodScores $ (hand++[c]) \\(concat$filtermeld(listAllPossibleMelds hand c)))==0 && a>1
 
   
 
