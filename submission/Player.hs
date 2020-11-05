@@ -15,6 +15,7 @@ import Control.Applicative
 import Parser.Instances
 import GHC.Unicode
 import Data.Ord
+import Data.Function
 import Control.Monad
 
 
@@ -47,12 +48,12 @@ instance Show Rank where
     show King="King"
 
 instance Show Meld where
-    show (Deadwood x)="Deadwood"++ show x        -- An unmelded card
-    show (Set3 x y z)  ="Set3"++show x ++ show y ++ show z    -- 3 cards of same rank different suit
-    show (Set4 a b c d) ="Set 4"++ show a ++ show b ++ show c++show d-- 4 cards of same rank different suit
-    show (Straight3 a b c)="Straight 3" ++ show a ++ show b ++ show c  -- 3 cards of same suit, sequential ranks
-    show (Straight4 a b c d)="Straight 4"++show a ++ show b ++ show c++show d -- 4 cards of same suit, sequential ranks
-    show  (Straight5 a b c d e)="Straight 5"++show a ++ show b ++ show c++show d++show e -- 5 cards of same suit, sequential ranks
+    show (Deadwood x)="Deadwood"++ " "++ show x        -- An unmelded card
+    show (Set3 x y z)  ="Set3"++" "++show x ++" "++ show y ++" "++ show z    -- 3 cards of same rank different suit
+    show (Set4 a b c d) ="Set 4"++" "++ show a ++" "++ show b ++" "++ show c++" "++show d-- 4 cards of same rank different suit
+    show (Straight3 a b c)="Straight 3" ++" "++ show a ++" "++ show b ++ " "++show c  -- 3 cards of same suit, sequential ranks
+    show (Straight4 a b c d)="Straight 4"++" "++show a ++" "++ show b ++" "++ show c++" "++show d -- 4 cards of same suit, sequential ranks
+    show  (Straight5 a b c d e)="Straight 5"++" "++" "++show a ++" "++ show b ++" "++ show c++" "++show d++" "++show e -- 5 cards of same suit, sequential ranks
 
 
 data Memory=Memory{cardsPlayed::Int,opponentCard::[Card],discardPile::[Card]}
@@ -347,13 +348,13 @@ playCard (Card f x) score mem hand
     |0 `elem` scoreofcard (delete (getRiskiestCard hand (Card f x)) hand) (Card f x)&& uncurry (-) score > -25=(Action Gin (getRiskiestCard hand (Card f x)),"")
     
     --if youre losing, call Knock ASAP
-    |canKnock hand (Card f x) && uncurry (-) score > -25=(Action Knock (getRiskiestCard hand (Card f x)),"")
+    |canKnock (delete (getRiskiestCard hand (Card f x))hand) (Card f x) && uncurry (-) score > -25=(Action Knock (getRiskiestCard hand (Card f x)),"")
 
     --try to match cards in opponent discards, and discard the same suits of opponent discards
     |length (filterSameSuit (discardPile (compileStringintoMemory mem)) f)-length (discardPile (compileStringintoMemory mem))<0=(Action Drop (chooseHighestValueCardofSameSuit hand (Just f)),"")
     
     --only knock, if less than half the deck played
-    |canKnock hand (Card f x) && cardsPlayed (compileStringintoMemory mem)<=26=(Action Drop (getRiskiestCard hand (Card f x)),"")
+    |canKnock(delete (getRiskiestCard hand (Card f x))hand) (Card f x) && cardsPlayed (compileStringintoMemory mem)<=26=(Action Knock (getRiskiestCard hand (Card f x)),"")
     
     --otherwise get maximum value at hand
     |otherwise=(Action Drop (maximum hand),"")
@@ -368,7 +369,9 @@ handScore :: [Card] -> Int
 handScore hand=sum (map toPoints hand)
 
 canKnock :: [Card]-> Card -> Bool
-canKnock hand c@(Card _ _)=(calculateDeadwoodScores $ hand \\(concat$filtermeld(listAllPossibleMelds hand c)))<10
+canKnock hand c@(Card _ _)=(calculateDeadwoodScores $ (hand++[c]) \\(concat$filtermeld(listAllPossibleMelds hand c)))<10
+
+
 
     --    |0 `elem`map (sum . map toPoints)(map(\ x -> calculateindscore x hand)(selectBestPossibleMeld (listAllPossibleMelds hand (Card f x))))=(,)
     --    |0 `elem` (sum . map toPoints) . (`calculateindscore` hand)(selectBestPossibleMeld (listAllPossibleMelds hand (Card f x)))=(Action Gin (Card f x),"")
@@ -392,10 +395,21 @@ formDeadwood x y=map Deadwood (x\\ y)
 
 
 filtermeld:: [[Card]]->[[Card]] 
-filtermeld [x,y]=if not (x `exists` y) then [x,y] else (if calculateDeadwoodScores x < calculateDeadwoodScores y then [x] else [y])
-filtermeld (s:x:sx)=if not( s `exists` x) then s:filtermeld sx  else filtermeld sx
-filtermeld []=[]
-filtermeld [x]=[x]
+filtermeld melds=nubBy (\x y-> exists x y) melds
+-- filtermeld (x:y:z:[[]])
+--     |not (x `exists` y || y `exists` z || x `exists` z)= [x,y,z]
+--     |x `exists` y && y `exists`z=lowest        
+--     |x `exists` y && not (y`exists` z) && calculateDeadwoodScores y<calculateDeadwoodScores x=[y,z]
+--     | x`exists` z && not (y`exists` z) && a<c=[x]
+--     where
+--         lowest=if a<b && a<c then [x] else (if b<a && b<c then [y] else [z])
+--         a=calculateDeadwoodScores x
+--         b=calculateDeadwoodScores y
+--         c=calculateDeadwoodScores z  
+-- filtermeld (x:y:[])=if not (x `exists` y) then [x,y] else (if calculateDeadwoodScores x < calculateDeadwoodScores y then [x] else [y])
+-- filtermeld (s:x:sx)=if not( s `exists` x) then s:x:filtermeld sx  else (if calculateDeadwoodScores s < calculateDeadwoodScores x then s:filtermeld sx else x:filtermeld sx)
+-- filtermeld []=[]
+-- filtermeld [x]=[x]
 
 --if filter melds 
 overlappingMelds :: [Card] -> [[Card]] ->Bool
