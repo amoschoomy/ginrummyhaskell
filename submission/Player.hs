@@ -13,25 +13,25 @@ import Data.List
 import Data.Maybe
 import Control.Applicative
 import Parser.Instances
-import GHC.Unicode
 import Data.Ord
-import Data.Function
-import Control.Monad
+import GHC.Unicode
 
 
-
+-- |show instance for Card
 instance Show Card where
     show (Card Heart a)="Card Heart "++ show a
     show (Card Diamond a)="Card Diamond "++ show a
     show (Card Spade a)="Card Spade " ++ show a
     show (Card Club a)="Card Club "++show a
 
+-- |show instance for suit
 instance Show Suit where
     show Heart="Heart"
     show Spade="Spade"
     show Diamond="Diamond"
     show Club="Club"
 
+-- |show instance for rank
 instance Show Rank where
     show Ace="Ace"
     show Two="Two"
@@ -47,6 +47,8 @@ instance Show Rank where
     show Queen="Queen"
     show King="King"
 
+
+-- |show instance for meld
 instance Show Meld where
     show (Deadwood x)="Deadwood"++ " "++ show x        -- An unmelded card
     show (Set3 x y z)  ="Set3"++" "++show x ++" "++ show y ++" "++ show z    -- 3 cards of same rank different suit
@@ -56,85 +58,47 @@ instance Show Meld where
     show  (Straight5 a b c d e)="Straight 5"++" "++" "++show a ++" "++ show b ++" "++ show c++" "++show d++" "++show e -- 5 cards of same suit, sequential ranks
 
 
+{-| memory datatype for storing state of the game
+cardsPlayed= total cardsPlayed in the game already
+opponentCard = opponent played cards in the game (whatever new cards is on discardPile==opponenent discards)
+discardPile = cards in discard pile (whatever cards dumped by player or not taken is here)
+ -}
 data Memory=Memory{cardsPlayed::Int,opponentCard::[Card],discardPile::[Card]}
 
---cardsPlayed= total cardsPlayed in the game already
--- opponentCard = opponent played cards in the game (whatever new cards is on discardPile==opponenent discards)
--- discardPile = cards in discard pile (whatever cards dumped by player or not taken is here)
 
+-- |function to update memory given a datatype
 updateMemory :: Memory -> [Card] -> [Card] -> Memory
 updateMemory memory newpile newdiscardpile =Memory{cardsPlayed=cardsPlayed memory+1,
 opponentCard=newpile++opponentCard memory,
 discardPile=newdiscardpile++ discardPile memory}
 
 
-
+-- |function to split string at specified character
+-- |Referenced from https://stackoverflow.com/a/4981265
 wordsWhen :: (Char->Bool)->String->[String]
 wordsWhen p s=case dropWhile p s of
     ""->[]
     s' -> w: wordsWhen p s''
         where (w,s'')=break p s'
 
-parsenumbercardsPlayed :: String ->Maybe(Int,String)
-parsenumbercardsPlayed =readInt
+{- Parser for Card Data type here
 
-getnumbercardsPlayed :: Maybe(Int,String)-> Int
-getnumbercardsPlayed (Just (a,_))=a
-getnumbercardsPlayed Nothing=0
-
-getRemainingString :: Maybe(Int,String)->String
-getRemainingString (Just(_,a))=a
-getRemainingString Nothing=""
-
-
-compileStringintoMemory :: String -> Memory
-compileStringintoMemory x= Memory{cardsPlayed=getnumbercardsPlayed(readInt x),
-opponentCard=getResultsfromParser (runParser(parse parseloc(getOpponentPile(getRemainingString (readInt x))))),
-discardPile=getResultsfromParser (runParser(parse parseloc(getDiscardPile(getRemainingString (readInt x)))))}
-
-getOpponentPile :: String -> String
-getOpponentPile "" =""
-getOpponentPile "|"=""
-getOpponentPile x =if null(wordsWhen (=='|')x)then ""else head (wordsWhen (=='|') x)
-
-getDiscardPile :: String -> String
-getDiscardPile x=if null (wordsWhen (=='|')x) then "" else last (wordsWhen (=='|')x)
-
-
-
-memorytoString :: Memory -> String
-memorytoString x=show(cardsPlayed x)++"|"++opponentCardtoString x++"|"++discardPiletoString x
-
-opponentCardtoString :: Memory ->String
-opponentCardtoString x=concatMap show (opponentCard x)
-
-discardPiletoString :: Memory -> String
-discardPiletoString x=concatMap show (discardPile x)
-
+-}
 
 parseHeart :: Parser Suit
 parseHeart = string "Heart" >> pure Heart
-
 
 parseDiamond :: Parser Suit
 parseDiamond= string "Diamond" >> pure Diamond
 
 parseClub :: Parser Suit
 parseClub = string "Club" >> pure Club
+
 parseSpade:: Parser Suit
 parseSpade = string "Spade" >> pure Spade
 
 parseSuit :: Parser Suit
 parseSuit = parseDiamond ||| parseClub ||| parseSpade ||| parseHeart
-
-string :: String -> Parser String
-string = traverse is
-
-
-runParser :: ParseResult a -> Maybe a
-runParser (Result _ a)=Just a
-runParser (Error _)=Nothing
-
 
 parseAce :: Parser Rank
 parseAce = string "Ace" >> pure Ace
@@ -177,12 +141,12 @@ parseKing = string "King" >> pure King
 
 
 parseRank :: Parser Rank
-parseRank= parseAce ||| parseTwo ||| parseThree ||| parseFour ||| parseFive ||| parseSix ||| parseSeven ||| parseEight ||| parseNine ||| parseTen ||| parseJack ||| parseQueen ||| parseKing
+parseRank= parseAce ||| parseTwo ||| parseThree ||| parseFour ||| parseFive 
+        ||| parseSix ||| parseSeven ||| parseEight ||| parseNine ||| parseTen 
+        ||| parseJack ||| parseQueen ||| parseKing
 
-getResultsfromParser :: Maybe [Card] -> [Card]
-getResultsfromParser (Just a)=a
-getResultsfromParser Nothing=[]
-
+      
+-- |Card Parser
 parseCard :: Parser Card
 parseCard = do 
     _ <- string "Card"
@@ -190,11 +154,14 @@ parseCard = do
     s <- parseSuit
     _ <- space
     Card s <$> parseRank
+        
+-- |Parse List of Cards
+parselistofcards :: Parser [Card]
+parselistofcards=list parseCard
 
 
-parseloc :: Parser [Card]
-parseloc=list parseCard
 
+{- helper codes below referenced from Tutorial 11-}
 list :: Parser a -> Parser [a]
 list p = (do
     first <- p
@@ -210,6 +177,69 @@ satisfy f = P func
     where
         func a = if a /= "" && f (head a) then parse character a else parse (unexpectedCharParser $ head a) ""
 
+
+string :: String -> Parser String
+string = traverse is
+
+---------------------------------------------------------------------------------------------------------------
+
+{- This block is to handle conversions of string into memory-}
+
+
+--My memory data type when parsed into a string: "Int|String|String"
+parsenumbercardsPlayed :: String ->Maybe(Int,String)
+parsenumbercardsPlayed =readInt
+
+getnumbercardsPlayed :: Maybe(Int,String)-> Int
+getnumbercardsPlayed (Just (a,_))=a
+getnumbercardsPlayed Nothing=0
+
+getRemainingString :: Maybe(Int,String)->String
+getRemainingString (Just(_,a))=a
+getRemainingString Nothing=""
+
+runParser :: ParseResult a -> Maybe a
+runParser (Result _ a)=Just a
+runParser (Error _)=Nothing
+
+
+
+
+getResultsfromParser :: Maybe [Card] -> [Card]
+getResultsfromParser (Just a)=a
+getResultsfromParser Nothing=[]
+
+-- |compile string into memory. uses parser, runParser and the functions below
+compileStringintoMemory :: String -> Memory
+compileStringintoMemory x= Memory{cardsPlayed=getnumbercardsPlayed(readInt x),
+opponentCard=getResultsfromParser (runParser(parse parselistofcards(getOpponentPile(getRemainingString (readInt x))))),
+discardPile=getResultsfromParser (runParser(parse parselistofcards(getDiscardPile(getRemainingString (readInt x)))))}
+
+
+getOpponentPile :: String -> String
+getOpponentPile "" =""
+getOpponentPile "|"=""
+getOpponentPile x =if null(wordsWhen (=='|')x)then ""else head (wordsWhen (=='|') x)
+
+getDiscardPile :: String -> String
+getDiscardPile x=if null (wordsWhen (=='|')x) then "" else last (wordsWhen (=='|')x)
+
+-----------------------------------------------------------------------------------------------------------------
+
+{-This block is to convert memory to the string in the format
+    memory="cardsPlayed|opponentCard|discardPile"-}
+
+memorytoString :: Memory -> String
+memorytoString x=show(cardsPlayed x)++"|"++opponentCardtoString x++"|"++discardPiletoString x
+
+opponentCardtoString :: Memory ->String
+opponentCardtoString x=concatMap show (opponentCard x)
+
+discardPiletoString :: Memory -> String
+discardPiletoString x=concatMap show (discardPile x)
+
+
+------------------------------------------------------------------------------------------------------------------
 
 pickCard :: ActionFunc
 pickCard (Card f x) score Nothing Nothing hand --base case when at start of the game
@@ -309,11 +339,11 @@ drawFromDiscardGeneralStrat (Card _ _) _ Nothing=False
 
 filterSameSuit :: [Card] -> Suit -> [Card]
 filterSameSuit cards suit=filter isSameSuit cards
-    where isSameSuit (Card s _)= if s==suit then True else False
+    where isSameSuit (Card s _)= s==suit
 
 filterRankLess :: [Card] -> Rank -> [Card]
 filterRankLess cards rank=filter isSameRank cards
-    where isSameRank (Card _ r)=if r<rank then True else False
+    where isSameRank (Card _ r)=r<rank
 
 filterRankMore :: [Card] -> Rank -> [Card]
 filterRankMore cards rank=filter isSameRank cards
@@ -321,7 +351,7 @@ filterRankMore cards rank=filter isSameRank cards
 
 filterSameRank :: [Card] -> Rank -> [Card]
 filterSameRank cards rank = filter isSameRank cards
-    where isSameRank (Card _ r)=if r==rank then True else False
+    where isSameRank (Card _ r)= (==rank)
 
 
 sameAny :: Eq b => (t -> b) -> t -> [t] -> Bool
@@ -360,65 +390,26 @@ playCard (Card f x) score mem hand
     |otherwise=(Action Drop (maximum hand),"")
 
 
-
-scoreofcard:: [Card] -> Card -> [Int]
-scoreofcard hand (Card f x)=map((sum . map toPoints) . (`calculateindscore` hand)) (selectBestPossibleMelds (listAllPossibleMelds hand (Card f x)))
-
-
-handScore :: [Card] -> Int
-handScore hand=sum (map toPoints hand)
-
 canKnock :: [Card]-> Card -> Bool
 canKnock hand c@(Card _ _)=(calculateDeadwoodScores $ (hand++[c]) \\(concat$filtermeld(listAllPossibleMelds hand c)))<10
 
 canGin :: [Card]-> Card -> Bool
 canGin hand c@(Card _ _)=(calculateDeadwoodScores $ (hand++[c]) \\(concat$filtermeld(listAllPossibleMelds hand c)))==0
 
-
-    --    |0 `elem`map (sum . map toPoints)(map(\ x -> calculateindscore x hand)(selectBestPossibleMeld (listAllPossibleMelds hand (Card f x))))=(,)
-    --    |0 `elem` (sum . map toPoints) . (`calculateindscore` hand)(selectBestPossibleMeld (listAllPossibleMelds hand (Card f x)))=(Action Gin (Card f x),"")
-
-    -- type MeldFunc
-    -- = (Score, Score) -- ^ scores of (player, opponent) as of last round
-    -- -> String        -- ^ the player's memory
-    -- -> [Card]        -- ^ cards in player's hand
-    -- -> [Meld]        -- ^ elected melds
   
 
 makeMelds :: MeldFunc
 makeMelds _ _ card=map formMelds (filtermeld (listAllMeld card))++formDeadwood card (concat (filtermeld (listAllMeld card)))
 
-formM :: [Card] -> [Card] ->[[Card]] -> Bool
-formM handofmeld _ otherMelds
-    |all (\x->not $exists handofmeld x) otherMelds=True
-    |otherwise=False
+
 formDeadwood :: [Card] -> [Card] -> [Meld]
 formDeadwood x y=map Deadwood (x\\ y)
 
 
 filtermeld:: [[Card]]->[[Card]] 
 filtermeld melds=nubBy (\x y-> exists x y) melds
--- filtermeld (x:y:z:[[]])
---     |not (x `exists` y || y `exists` z || x `exists` z)= [x,y,z]
---     |x `exists` y && y `exists`z=lowest        
---     |x `exists` y && not (y`exists` z) && calculateDeadwoodScores y<calculateDeadwoodScores x=[y,z]
---     | x`exists` z && not (y`exists` z) && a<c=[x]
---     where
---         lowest=if a<b && a<c then [x] else (if b<a && b<c then [y] else [z])
---         a=calculateDeadwoodScores x
---         b=calculateDeadwoodScores y
---         c=calculateDeadwoodScores z  
--- filtermeld (x:y:[])=if not (x `exists` y) then [x,y] else (if calculateDeadwoodScores x < calculateDeadwoodScores y then [x] else [y])
--- filtermeld (s:x:sx)=if not( s `exists` x) then s:x:filtermeld sx  else (if calculateDeadwoodScores s < calculateDeadwoodScores x then s:filtermeld sx else x:filtermeld sx)
--- filtermeld []=[]
--- filtermeld [x]=[x]
 
---if filter melds 
-overlappingMelds :: [Card] -> [[Card]] ->Bool
-overlappingMelds handofmeld otherMelds=any (\x->exists handofmeld x) otherMelds
 
-filterMelds :: [Card] -> [[Card]] ->[Int]
-filterMelds card melds=(map calculateDeadwoodScores (filter (\x->exists card x) melds))
 
 appendmeldvalue ::[[Card]] -> [Int] ->[([Card],Int)]
 appendmeldvalue (a:ax) (b:bx) =(a,b):appendmeldvalue ax bx
@@ -426,25 +417,16 @@ appendmeldvalue [] []=[]
 appendmeldvalue [] (_:_)=[]
 appendmeldvalue (_:_) []=[]
 
+
 getlowestmeldvalue:: [([Card],Int)]->[Card]
 getlowestmeldvalue []=[]
 getlowestmeldvalue x=fst (minimumBy (comparing snd) x)
 
 
-safetoMeld ::Meld-> [Card]->Bool
-safetoMeld x l=not$ null (calculateindscore x l)
--- |0 `elem`( map sum((map.map) toPoints  (map(\x->calculateindscore x hand) (selectBestPossibleMelds(listAllPossibleMelds hand (Card f x))))))=(Action Gin (Card f x),"")
-
-
---list all possibleMeld
---for each , list of cards check if melds already formed, form a meld list, delete the cards from the deck,
-
 chooseHighestValueCardofSameSuit :: [Card] ->Maybe Suit ->  Card
 chooseHighestValueCardofSameSuit hand (Just suit) = if not$ null (filter (\(Card s _)->s==suit) hand) then   maximum (filter (\(Card s _)->s==suit) hand) else maximum hand
 chooseHighestValueCardofSameSuit hand Nothing=maximum hand
 
-
--- loc=[Card Heart Five, Card Heart Six,Card Diamond Four, Card Club Seven, Card Spade King,Card Spade Four,Card Club Five]
 
 cardToPoints :: Card->Int
 cardToPoints (Card _ rank) = fromEnum rank + 1
@@ -461,17 +443,7 @@ getRiskiestCard :: [Card] -> Card -> Card
 getRiskiestCard [] (Card f x)=Card f x
 getRiskiestCard hand (Card f x)
     |null (selectBestPossibleMelds (listAllPossibleMelds hand (Card f x)))=maximum hand
-    |otherwise=maximum$maximumBy (comparing length) (map(`calculateindscore` hand)(selectBestPossibleMelds (listAllPossibleMelds hand (Card f x))))
-
-meldintocard::[[Card]]
-meldintocard=map(`calculateindscore` [Card Heart Ace])(selectBestPossibleMelds (listAllPossibleMelds [Card Heart Ace] (Card Diamond Ace)))
-
-
-
-getDeadwoods :: [Card] ->[Card] -> [Card]
-getDeadwoods meld hand = hand \\ meld
-
---We need to form melds, such that each melds are uniquely composed of diffeent cards.
+    |otherwise=maximum$maximumBy (comparing length) (map(`getDeadwoods` hand)(selectBestPossibleMelds (listAllPossibleMelds hand (Card f x))))
 
 
 calculateDeadwoodScores :: [Card] ->Int
@@ -483,20 +455,14 @@ selectBestPossibleMelds (x:xs)=formMelds x:selectBestPossibleMelds xs
 selectBestPossibleMelds []=[]
 
 
-scoreCards:: [Card] -> Int
-scoreCards x=sum (map toPoints x)
-
-
-
-
-calculateindscore :: Meld -> [Card] -> [Card]
-calculateindscore m@(Straight3 a b c) (w:wy)=if a/=w && b/=w && c/=w then w:calculateindscore m wy  else calculateindscore m wy
-calculateindscore m@(Straight4 a b c d) (w:wy)=if a/=w && b/=w && c/=w && d/=w then w:calculateindscore m wy   else calculateindscore m wy
-calculateindscore m@(Straight5 a b c d e) (w:wy)=if a/=w && b/=w && c/=w && d/=w && e/=w then w:calculateindscore m wy   else calculateindscore m wy
-calculateindscore m@(Set3 a b c) (w:wy)=if a/=w && b/=w && c/=w then w:calculateindscore m wy   else calculateindscore m wy
-calculateindscore m@(Set4 a b c d) (w:wy)=if a/=w && b/=w && c/=w && d/=w then w:calculateindscore m wy   else calculateindscore m wy
-calculateindscore (Deadwood _) x=x
-calculateindscore _ []=[]
+getDeadwoods :: Meld -> [Card] -> [Card]
+getDeadwoods m@(Straight3 a b c) (w:wy)=if a/=w && b/=w && c/=w then w:getDeadwoods m wy  else getDeadwoods m wy
+getDeadwoods m@(Straight4 a b c d) (w:wy)=if a/=w && b/=w && c/=w && d/=w then w:getDeadwoods m wy   else getDeadwoods m wy
+getDeadwoods m@(Straight5 a b c d e) (w:wy)=if a/=w && b/=w && c/=w && d/=w && e/=w then w:getDeadwoods m wy   else getDeadwoods m wy
+getDeadwoods m@(Set3 a b c) (w:wy)=if a/=w && b/=w && c/=w then w:getDeadwoods m wy   else getDeadwoods m wy
+getDeadwoods m@(Set4 a b c d) (w:wy)=if a/=w && b/=w && c/=w && d/=w then w:getDeadwoods m wy   else getDeadwoods m wy
+getDeadwoods (Deadwood _) x=x
+getDeadwoods _ []=[]
 
 
 
@@ -513,8 +479,6 @@ listAllMeld hand=filter  possibleMeld $ filter (\x->length x>=3 && length x<=5) 
 possibleMeld :: [Card] -> Bool
 possibleMeld hand =checkSetMeld hand || checkStraightMeld hand
 
--- qcards=[Card Heart Nine, Card Heart Ten, Card Heart King, Card Diamond Ace, Card Diamond Ten, Card Club Ten]
-
 
 formMelds :: [Card] -> Meld
 formMelds l@[a,b,c]= x a b c where
@@ -530,10 +494,7 @@ formMelds (_:_)=undefined
 
 
 
-
---Referenced from https://stackoverflow.com/a/47004828/
+-- |Check if elements in two list intersects, returns true if there is intersection occurs
+-- |Referenced from https://stackoverflow.com/a/47004828/
 exists :: Eq a => [a] -> [a] -> Bool
 exists x y = or $ (==) <$> x <*> y
-
-
--- meld= Straight3 (Card Heart Nine) (Card Heart Ten) (Card Heart Queen)
