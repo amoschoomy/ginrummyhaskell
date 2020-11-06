@@ -437,7 +437,7 @@ playCard (Card f x) score mem hand
 
 
 canKnock :: [Card]-> Card ->Int-> Bool
-canKnock hand c@(Card _ _) a=(calculateDeadwoodScores $ (hand++[c]) \\(concat$filtermeld(listAllPossibleMelds hand c)))<10 && a>1
+canKnock hand c@(Card _ _) a=(calculateDeadwoodScores $ (hand++[c]) \\(concat$filtermeld(listAllPossibleMelds hand c)))<=10 && a>1
 
 canGin :: [Card]-> Card ->Int-> Bool
 canGin hand c@(Card _ _) a=(calculateDeadwoodScores $ (hand++[c]) \\(concat$filtermeld(listAllPossibleMelds hand c)))==0 && a>1
