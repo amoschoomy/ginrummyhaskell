@@ -70,8 +70,8 @@ data Memory=Memory{cardsPlayed::Int,opponentCard::[Card],discardPile::[Card]}
 -- |function to update memory given a datatype
 updateMemory :: Memory -> [Card] -> [Card] -> Memory
 updateMemory memory newpile newdiscardpile =Memory{cardsPlayed=cardsPlayed memory+1,
-opponentCard=newpile++opponentCard memory,
-discardPile=newdiscardpile++ discardPile memory}
+opponentCard=newpile,
+discardPile=newdiscardpile}
 
 
 -- |function to split string at specified character
@@ -421,14 +421,14 @@ playCard (Card f x) score mem hand
     |canGin (delete(getRiskiestCard hand (Card f x) (getMostFrequentSuit (opponentCard (compileStringintoMemory mem)))) hand)(Card f x)(cardsPlayed (compileStringintoMemory mem))  &&cardsPlayed (compileStringintoMemory mem)>26 && uncurry (-) score > -25 =(Action Gin (getRiskiestCard hand (Card f x) (getMostFrequentSuit (opponentCard (compileStringintoMemory mem)))),"0||")
     
     --in normal circumstances, call Gin ASAP
-    |canGin (delete(getRiskiestCard hand (Card f x) (getMostFrequentSuit (opponentCard (compileStringintoMemory mem)))) hand) (Card f x)(cardsPlayed (compileStringintoMemory mem))&& uncurry (-) score > -25=(Action Gin (getRiskiestCard hand (Card f x) (getMostFrequentSuit (opponentCard (compileStringintoMemory mem)))),"0||")
+    |canGin (delete(getRiskiestCard hand (Card f x) (getMostFrequentSuit (opponentCard (compileStringintoMemory mem)))) hand) (Card f x)(cardsPlayed (compileStringintoMemory mem))=(Action Gin (getRiskiestCard hand (Card f x) (getMostFrequentSuit (opponentCard (compileStringintoMemory mem)))),"0||")
     
     --if youre losing, call Knock ASAP
     |canKnock (delete(getRiskiestCard hand (Card f x) (getMostFrequentSuit (opponentCard (compileStringintoMemory mem)))) hand) (Card f x)(cardsPlayed (compileStringintoMemory mem)) && uncurry (-) score > -25=(Action Knock (getRiskiestCard hand (Card f x) (getMostFrequentSuit (opponentCard (compileStringintoMemory mem)))),"0||")
 
     --try to match cards in opponent discards, and discard the same suits of opponent discards
-    |length (filterSameSuit (discardPile (compileStringintoMemory mem)) f)-length (discardPile (compileStringintoMemory mem))<0=(Action Drop (chooseHighestValueCardofSameSuit hand (Just f)),"")
-    
+    |not$ null (discardPile (compileStringintoMemory mem))=(Action Drop (chooseHighestValueCardofSameSuit hand (Just (getSuit$last$sort(discardPile(compileStringintoMemory mem))))),
+    memorytoString(updateMemory (compileStringintoMemory mem) [][(chooseHighestValueCardofSameSuit hand (Just (getSuit$last$sort(discardPile(compileStringintoMemory mem)))))]))    
     --only knock, if less than half the deck played
     |canKnock(delete(getRiskiestCard hand (Card f x) (getMostFrequentSuit (opponentCard (compileStringintoMemory mem)))) hand) (Card f x)(cardsPlayed (compileStringintoMemory mem)) && cardsPlayed (compileStringintoMemory mem)<=26 && score/=(0,0)=(Action Knock (getRiskiestCard hand (Card f x) (getMostFrequentSuit (opponentCard (compileStringintoMemory mem)))),"0||")
     
@@ -453,7 +453,7 @@ formDeadwood x y=map Deadwood (x\\ y)
 
 
 filtermeld:: [[Card]]->[[Card]] 
-filtermeld melds=nubBy (\x y-> exists x y) melds
+filtermeld melds=nubBy (\x y-> exists x y) (arrangeMeld melds (map (calculateDeadwoodScores) melds))
 
 
 
@@ -463,11 +463,21 @@ appendmeldvalue [] []=[]
 appendmeldvalue [] (_:_)=[]
 appendmeldvalue (_:_) []=[]
 
+arrangeMeld :: [[Card]] -> [Int] -> [[Card]]
+arrangeMeld melds scores=reverse$deconstructmeld$sortBy (\(_,a) (_,b)->compare a b) (appendmeldvalue melds scores) 
+
+deconstructmeld :: [([Card],Int)] -> [[Card]]
+deconstructmeld []=[]
+deconstructmeld [([],_)]=[]
+deconstructmeld ((a,_):xs)=a:deconstructmeld xs
 
 getlowestmeldvalue:: [([Card],Int)]->[Card]
 getlowestmeldvalue []=[]
 getlowestmeldvalue x=fst (minimumBy (comparing snd) x)
 
+
+--[[Card Spade Queen,Card Club Queen,Card Diamond Queen],[Card Heart Ace,Card Heart Two,Card Heart Three],[Card Spade Queen,Card Club Queen,Card Heart Queen],[Card Spade Queen,Card Diamond Queen,Card Heart Queen],[Card Club Queen,Card Diamond Queen,Card Heart Queen],[Card Spade Queen,Card Club Queen,Card Diamond Queen,Card Heart Queen],[Card Heart Ten,Card Heart Jack,Card Heart Queen],
+--[Card Heart Jack,Card Heart Queen,Card Heart King],[Card Heart Ten,Card Heart Jack,Card Heart Queen,Card Heart King]]
 
 chooseHighestValueCardofSameSuit :: [Card] ->Maybe Suit ->  Card
 chooseHighestValueCardofSameSuit hand (Just suit) = if not$ null (filter (\(Card s _)->s==suit) hand) then   maximum (filter (\(Card s _)->s==suit) hand) else maximum hand
