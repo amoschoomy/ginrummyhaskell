@@ -20,33 +20,33 @@ import GHC.Unicode
 
 -- |show instance for Card
 instance Show Card where
-    show (Card Heart a)="Card Heart "++ show a
-    show (Card Diamond a)="Card Diamond "++ show a
-    show (Card Spade a)="Card Spade " ++ show a
-    show (Card Club a)="Card Club "++show a
+    show (Card Heart a)="CH"++ show a
+    show (Card Diamond a)="CD"++ show a
+    show (Card Spade a)="CS" ++ show a
+    show (Card Club a)="CC"++show a
 
 -- |show instance for suit
 instance Show Suit where
-    show Heart="Heart"
-    show Spade="Spade"
-    show Diamond="Diamond"
-    show Club="Club"
+    show Heart="H"
+    show Spade="S"
+    show Diamond="D"
+    show Club="C"
 
 -- |show instance for rank
 instance Show Rank where
-    show Ace="Ace"
-    show Two="Two"
-    show Three="Three"
-    show Four="Four"
-    show Five="Five"
-    show Six="Six"
-    show Seven="Seven"
-    show Eight="Eight"
-    show Nine="Nine"
-    show Ten="Ten"
-    show Jack="Jack"
-    show Queen="Queen"
-    show King="King"
+    show Ace="A"
+    show Two="2"
+    show Three="3"
+    show Four="4"
+    show Five="5"
+    show Six="6"
+    show Seven="7"
+    show Eight="8"
+    show Nine="9"
+    show Ten="10"
+    show Jack="J"
+    show Queen="Q"
+    show King="K"
 
 
 -- |show instance for meld
@@ -64,14 +64,14 @@ cardsPlayed= total cardsPlayed in the game already
 opponentCard = opponent played cards in the game (whatever new cards is on discardPile==opponenent discards)
 discardPile = cards in discard pile (whatever cards dumped by player or not taken is here)
  -}
-data Memory=Memory{cardsPlayed::Int,opponentCard::[Card],discardPile::[Card]}
+data Memory=Memory{cardsPlayed::Int,opponentCard::[Card],discardPile::[Card]} deriving Show
 
 
 -- |function to update memory given a datatype
 updateMemory :: Memory -> [Card] -> [Card] -> Memory
 updateMemory memory newpile newdiscardpile =Memory{cardsPlayed=cardsPlayed memory+1,
-opponentCard=newpile,
-discardPile=newdiscardpile}
+opponentCard=opponentCard memory++newpile,
+discardPile=discardPile memory++newdiscardpile}
 
 
 -- |function to split string at specified character
@@ -87,58 +87,58 @@ wordsWhen p s=case dropWhile p s of
 -}
 
 parseHeart :: Parser Suit
-parseHeart = string "Heart" >> pure Heart
+parseHeart = string "H" >> pure Heart
 
 parseDiamond :: Parser Suit
-parseDiamond= string "Diamond" >> pure Diamond
+parseDiamond= string "D" >> pure Diamond
 
 parseClub :: Parser Suit
-parseClub = string "Club" >> pure Club
+parseClub = string "C" >> pure Club
 
 parseSpade:: Parser Suit
-parseSpade = string "Spade" >> pure Spade
+parseSpade = string "S" >> pure Spade
 
 parseSuit :: Parser Suit
 parseSuit = parseDiamond ||| parseClub ||| parseSpade ||| parseHeart
 
 parseAce :: Parser Rank
-parseAce = string "Ace" >> pure Ace
+parseAce = string "A" >> pure Ace
 
 parseTwo ::Parser Rank
-parseTwo = string "Two" >> pure Two
+parseTwo = string "2" >> pure Two
 
 parseThree ::Parser Rank
-parseThree=string "Three" >> pure Three
+parseThree=string "3" >> pure Three
 
 parseFour :: Parser Rank
-parseFour = string "Four" >> pure Four
+parseFour = string "4" >> pure Four
 
 parseFive :: Parser Rank
-parseFive = string "Five" >> pure Five
+parseFive = string "5" >> pure Five
 
 parseSix :: Parser Rank
-parseSix = string "Six" >> pure Six
+parseSix = string "6" >> pure Six
 
 parseSeven :: Parser Rank
-parseSeven = string "Seven" >>pure Seven
+parseSeven = string "7" >>pure Seven
 
 parseEight :: Parser Rank
-parseEight = string "Eight" >> pure Eight
+parseEight = string "8" >> pure Eight
 
 parseNine :: Parser Rank
-parseNine= string "Nine" >> pure Nine
+parseNine= string "9" >> pure Nine
 
 parseTen :: Parser Rank
-parseTen = string "Ten" >> pure Ten
+parseTen = string "10" >> pure Ten
 
 parseJack :: Parser Rank
-parseJack=string "Jack" >> pure Jack
+parseJack=string "J" >> pure Jack
 
 parseQueen :: Parser Rank
-parseQueen = string "Queen" >> pure Queen
+parseQueen = string "Q" >> pure Queen
 
 parseKing :: Parser Rank
-parseKing = string "King" >> pure King
+parseKing = string "K" >> pure King
 
 
 parseRank :: Parser Rank
@@ -150,10 +150,8 @@ parseRank= parseAce ||| parseTwo ||| parseThree ||| parseFour ||| parseFive
 -- |Card Parser
 parseCard :: Parser Card
 parseCard = do 
-    _ <- string "Card"
-    _ <- space
+    _ <- string "C"
     s <- parseSuit
-    _ <- space
     Card s <$> parseRank
         
 -- |Parse List of Cards
