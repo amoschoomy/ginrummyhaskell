@@ -1,6 +1,8 @@
 Gin Rummy based on Haskell.
 
-Disclaimer: I'm only responsbile for Player Actions. Code Skeleton is provided by Monash University.
+Disclaimer: I'm only responsbile for Player.hs.
+
+Full credits for the skeleton code provided in other directories to the teaching team of FIT2102 in Monash University
 
 
 Things to do:
